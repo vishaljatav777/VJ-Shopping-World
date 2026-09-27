@@ -122,4 +122,55 @@ router.get('/me', authenticateJwt, async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch user profile.' });
     }
 });
+// PUT /api/auth/profile — Update customer personal profile
+router.put('/profile', authenticateJwt, async (req, res) => {
+    try {
+        const { name, phoneNumber } = req.body;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized user.' });
+        }
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(name ? { name } : {}),
+                ...(phoneNumber ? { phoneNumber } : {})
+            },
+            select: {
+                id: true,
+                name: true,
+                phoneNumber: true,
+                role: true,
+                isActive: true,
+                createdAt: true
+            }
+        });
+        return res.json({
+            message: 'Profile details updated successfully',
+            user: updatedUser
+        });
+    }
+    catch (error) {
+        console.error('Profile update error:', error);
+        return res.status(500).json({ error: 'Failed to update profile.' });
+    }
+});
+// DELETE /api/auth/account — Delete customer account
+router.delete('/account', authenticateJwt, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized user.' });
+        }
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isActive: false }
+        });
+        return res.json({ message: 'Account deleted successfully.' });
+    }
+    catch (error) {
+        console.error('Delete account error:', error);
+        return res.status(500).json({ error: 'Failed to delete account.' });
+    }
+});
 export default router;

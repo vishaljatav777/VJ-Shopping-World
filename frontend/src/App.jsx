@@ -292,7 +292,17 @@ export default function App() {
             {/* Personal Details & Govt Proof Verification Profile */}
             <Route
               path="/profile"
-              element={<UserProfile currentUser={currentUser} onUserUpdated={(u) => setCurrentUser(u)} />}
+              element={
+                <UserProfile 
+                  currentUser={currentUser} 
+                  onUserUpdated={(u) => setCurrentUser(u)} 
+                  onLogout={() => {
+                    localStorage.removeItem('vj_token');
+                    localStorage.removeItem('vj_user');
+                    setCurrentUser(null);
+                  }}
+                />
+              }
             />
           </Routes>
         </main>
