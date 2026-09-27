@@ -15,7 +15,7 @@ const initiateReturnSchema = z.object({
 // POST /api/return/:orderId/initiate — Initiate Return-To-Retailer (RTR)
 router.post('/:orderId/initiate', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const parseResult = initiateReturnSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ error: 'Invalid return request', details: parseResult.error.format() });
@@ -72,7 +72,7 @@ const verifyReturnSchema = z.object({
 // POST /api/return/:orderId/verify-merchant-return — Merchant Restock & Handshake (Page 29-30)
 router.post('/:orderId/verify-merchant-return', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const parseResult = verifyReturnSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ error: 'Invalid return verification payload', details: parseResult.error.format() });

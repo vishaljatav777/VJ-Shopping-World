@@ -200,7 +200,7 @@ const verifyDeliverySchema = z.object({
 
 router.post('/:orderId/verify-delivery-otp', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const parseResult = verifyDeliverySchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ error: 'Invalid payload for delivery OTP verification', details: parseResult.error.format() });
@@ -265,7 +265,7 @@ router.post('/:orderId/verify-delivery-otp', async (req: Request, res: Response)
 // GET /api/orders/user/:buyerId — Get buyer orders
 router.get('/user/:buyerId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { buyerId } = req.params;
+    const buyerId = req.params.buyerId as string;
     const orders = await prisma.order.findMany({
       where: { buyerId },
       include: { merchant: true, rider: true },
@@ -291,7 +291,7 @@ router.get('/user/:buyerId', async (req: Request, res: Response): Promise<void> 
 // GET /api/orders/:orderId — Get order status
 router.get('/:orderId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: { merchant: true, rider: true }
@@ -336,7 +336,7 @@ const updateStatusSchema = z.object({
 
 router.patch('/:orderId/status', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const parseResult = updateStatusSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ error: 'Invalid status update', details: parseResult.error.format() });
