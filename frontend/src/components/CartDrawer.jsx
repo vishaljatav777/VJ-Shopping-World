@@ -58,12 +58,36 @@ export default function CartDrawer({
     setIsPlacingOrder(true);
     setAuthError('');
 
+    const saveOrderToUserHistory = (orderObj) => {
+      if (!currentUser || !currentUser.id) return;
+      try {
+        const userOrdersKey = `vj_user_orders_${currentUser.id}`;
+        const existing = JSON.parse(localStorage.getItem(userOrdersKey) || '[]');
+        const formattedOrder = {
+          id: orderObj.id || `ORD_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          status: orderObj.status || 'CREATED',
+          deliveryOtp: orderObj.deliveryOtp || '4892',
+          totalAmount: (orderObj.totalAmount || orderObj.totalAmountPaise || totalPaise).toString(),
+          shippingAddress: address,
+          items: cartItems.map((item) => ({
+            title: item.title,
+            quantity: item.quantity,
+            pricePaise: item.pricePaise,
+            image: item.images && item.images[0] ? item.images[0] : ''
+          }))
+        };
+        const updated = [formattedOrder, ...existing.filter((o) => o.id !== formattedOrder.id)];
+        localStorage.setItem(userOrdersKey, JSON.stringify(updated));
+      } catch (e) {}
+    };
+
     try {
       const response = await fetch(`${API_BASE_URL}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          buyerId: '98765432-0000-0000-0000-000000000000',
+          buyerId: currentUser?.id || '98765432-0000-0000-0000-000000000000',
           merchantId: '98765432-1111-1111-1111-111111111111',
           items: cartItems.map((item) => ({
             productId: item._id || item.id,
@@ -83,11 +107,13 @@ export default function CartDrawer({
           itemsCount: cartItems.length,
           deliveryOtp: '4892'
         };
+        saveOrderToUserHistory(demoOrder);
         onCheckoutSuccess(demoOrder);
         onClose();
         return;
       }
 
+      saveOrderToUserHistory(data.order);
       onCheckoutSuccess(data.order);
       onClose();
     } catch (err) {
@@ -98,6 +124,7 @@ export default function CartDrawer({
         itemsCount: cartItems.length,
         deliveryOtp: '4892'
       };
+      saveOrderToUserHistory(demoOrder);
       onCheckoutSuccess(demoOrder);
       onClose();
     } finally {

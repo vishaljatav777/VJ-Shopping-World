@@ -46,76 +46,40 @@ export default function UserProfile({ currentUser, onUserUpdated, onLogout }) {
 
   const fetchUserOrders = async () => {
     setLoadingOrders(true);
+    let userOrders = [];
+
+    // 1. Read orders stored locally for this specific user ID
+    if (user && user.id) {
+      try {
+        const localSaved = localStorage.getItem(`vj_user_orders_${user.id}`);
+        if (localSaved) {
+          userOrders = JSON.parse(localSaved);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch remote orders from API for this specific user ID
     try {
-      const res = await fetch(`${API_BASE_URL}/orders/user/${user.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.orders && data.orders.length > 0) {
-          setOrders(data.orders);
-          setLoadingOrders(false);
-          return;
+      if (user && user.id) {
+        const res = await fetch(`${API_BASE_URL}/orders/user/${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.orders && Array.isArray(data.orders)) {
+            const dbOrdersMap = new Map();
+            data.orders.forEach((o) => dbOrdersMap.set(o.id, o));
+            userOrders.forEach((o) => {
+              if (!dbOrdersMap.has(o.id)) {
+                dbOrdersMap.set(o.id, o);
+              }
+            });
+            userOrders = Array.from(dbOrdersMap.values());
+          }
         }
       }
-      // Fallback sample orders if user has no orders yet
-      setOrders([
-        {
-          id: 'ORD_9827104928',
-          createdAt: new Date().toISOString(),
-          status: 'OUT_FOR_DELIVERY',
-          deliveryOtp: '4892',
-          totalAmount: '124900', // ₹1,249.00
-          shippingAddress: {
-            street: 'Flat 402, Green Valley Apartments, Sector 62',
-            city: 'Noida',
-            pincode: '201301',
-            contactPhone: '9876543210'
-          },
-          items: [
-            {
-              title: 'boAt Rockerz 450 Wireless Headphones',
-              quantity: 1,
-              pricePaise: 149900,
-              image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'
-            },
-            {
-              title: 'Organic Farm Fresh Bananas (1 Dozen)',
-              quantity: 1,
-              pricePaise: 6000,
-              image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80'
-            }
-          ]
-        },
-        {
-          id: 'ORD_7182903102',
-          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-          status: 'DELIVERED',
-          deliveryOtp: '1928',
-          totalAmount: '31300', // ₹313.00
-          shippingAddress: {
-            street: 'Flat 402, Green Valley Apartments, Sector 62',
-            city: 'Noida',
-            pincode: '201301',
-            contactPhone: '9876543210'
-          },
-          items: [
-            {
-              title: 'Amul Taaza Toned Milk (1 Litre)',
-              quantity: 1,
-              pricePaise: 6800,
-              image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80'
-            },
-            {
-              title: 'Aashirvaad Shuddh Chakki Atta (5 kg)',
-              quantity: 1,
-              pricePaise: 24500,
-              image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80'
-            }
-          ]
-        }
-      ]);
     } catch (err) {
-      console.warn('Failed to fetch user orders:', err);
+      console.warn('Failed to fetch remote user orders:', err);
     } finally {
+      setOrders(userOrders);
       setLoadingOrders(false);
     }
   };
