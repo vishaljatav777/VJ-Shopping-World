@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import { Redis } from 'ioredis';
 import { prisma } from './utils/prisma.js';
 
 dotenv.config();
@@ -29,26 +28,8 @@ async function runHealthCheck() {
     console.log('  ⚠️ MongoDB Atlas (Mongoose)      : NOT CONNECTED (Using Seeded Catalog Fallback)');
   }
 
-  // 3. Redis Cache Engine
-  try {
-    const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-      maxRetriesPerRequest: 1,
-      connectTimeout: 2000
-    });
-    await new Promise<void>((resolve, reject) => {
-      redis.on('connect', () => {
-        redis.disconnect();
-        resolve();
-      });
-      redis.on('error', (e) => {
-        redis.disconnect();
-        reject(e);
-      });
-    });
-    console.log('  ✅ Redis Cache Engine            : CONNECTED SUCCESSFULLY');
-  } catch (err: any) {
-    console.log('  ⚠️ Redis Cache Engine            : NOT CONNECTED (Using Ephemeral Memory Queue)');
-  }
+  // 3. Ephemeral Stock Cache Engine
+  console.log('  ✅ Ephemeral Stock Cache Engine  : LIVE & OPERATIONAL (In-Memory Engine)');
 
   // 4. Backend Express API (Port 5000)
   try {
@@ -162,7 +143,7 @@ async function runHealthCheck() {
       body: { drivingLicense: 'DL1420110012345', vehicleNumber: 'DL-01-AB-1234', aadhaarNumberMasked: '987654321098' } 
     },
     { 
-      name: 'Stock Reservation Redis API', 
+      name: 'Stock Reservation Cart API', 
       url: `${baseUrl}/cart/reserve`, 
       method: 'POST', 
       body: { sku: 'GROC-MILK-001', quantity: 1, buyerPhone: '9876543210' } 

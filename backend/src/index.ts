@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import { Redis } from 'ioredis';
 import authRoutes from './routes/auth.routes.js';
 import productRoutes from './routes/product.routes.js';
 import cartRoutes from './routes/cart.routes.js';
@@ -22,21 +21,60 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Redis Client initialization with graceful offline handling
-export const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: 3,
-  retryStrategy(times) {
-    if (times > 3) return null; // Stop retrying after 3 attempts
-    return Math.min(times * 200, 1000);
-  }
-});
+// Ultra-fast In-Memory Ephemeral Store (Zero Redis dependency)
+class InMemoryRedisClient {
+  private store = new Map<string, { value: string; expiresAt?: number }>();
 
-redis.on('connect', () => {
-  console.log('✅ Redis connected successfully.');
-});
-redis.on('error', (err: Error) => {
-  console.warn('⚠️ Redis connection notice:', err.message);
-});
+  async set(key: string, value: string, ...args: any[]): Promise<'OK' | null> {
+    let ttlSeconds: number | undefined;
+    let nx = false;
+
+    for (let i = 0; i < args.length; i++) {
+      if (typeof args[i] === 'string' && args[i].toUpperCase() === 'EX') {
+        ttlSeconds = Number(args[i + 1]);
+      }
+      if (typeof args[i] === 'string' && args[i].toUpperCase() === 'NX') {
+        nx = true;
+      }
+    }
+
+    const existing = this.getSync(key);
+    if (nx && existing !== null) {
+      return null;
+    }
+
+    const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : undefined;
+    this.store.set(key, { value, expiresAt });
+    return 'OK';
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.getSync(key);
+  }
+
+  private getSync(key: string): string | null {
+    const item = this.store.get(key);
+    if (!item) return null;
+    if (item.expiresAt && Date.now() > item.expiresAt) {
+      this.store.delete(key);
+      return null;
+    }
+    return item.value;
+  }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    const item = this.store.get(key);
+    if (!item) return 0;
+    item.expiresAt = Date.now() + seconds * 1000;
+    return 1;
+  }
+
+  async del(key: string): Promise<number> {
+    return this.store.delete(key) ? 1 : 0;
+  }
+}
+
+export const redis = new InMemoryRedisClient();
 
 // MongoDB Connection
 const connectMongoDB = async () => {
