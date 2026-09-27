@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import KycVerificationModal from './KycVerificationModal';
+import { API_BASE_URL } from '../config/api';
 
 export default function RiderConsole({ currentUser, onRoleUpdated }) {
   const [data, setData] = useState(null);
@@ -16,7 +17,7 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
 
   const fetchConsole = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/rider/console');
+      const res = await fetch(`${API_BASE_URL}/rider/console`);
       if (res.ok) {
         const result = await res.json();
         setData(result);
@@ -30,7 +31,7 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
 
   const handleToggleOnline = async () => {
     try {
-      await fetch('http://localhost:5000/api/rider/toggle-availability', { method: 'PATCH' });
+      await fetch(`${API_BASE_URL}/rider/toggle-availability`, { method: 'PATCH' });
       fetchConsole();
     } catch (err) {
       console.error('Toggle availability error:', err);
@@ -39,7 +40,7 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -55,7 +56,7 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
     setOtpError('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${otpModalOrder.id}/verify-delivery-otp`, {
+      const res = await fetch(`${API_BASE_URL}/orders/${otpModalOrder.id}/verify-delivery-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { API_BASE_URL } from './config/api';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ProductGrid from './components/ProductGrid';
@@ -139,7 +140,7 @@ export default function App() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/products');
+      const res = await fetch(`${API_BASE_URL}/products`);
       if (res.ok) {
         const data = await res.json();
         if (data.products && data.products.length > 0) {
@@ -173,7 +174,7 @@ export default function App() {
     });
 
     if (change > 0) {
-      fetch('http://localhost:5000/api/cart/reserve', {
+      fetch(`${API_BASE_URL}/cart/reserve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +209,7 @@ export default function App() {
       const updated = { ...activeOrder, status: newStatus };
       setActiveOrder(updated);
 
-      fetch(`http://localhost:5000/api/orders/${activeOrder.id}/status`, {
+      fetch(`${API_BASE_URL}/orders/${activeOrder.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

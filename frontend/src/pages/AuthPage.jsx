@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 export default function AuthPage({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -21,10 +22,10 @@ export default function AuthPage({ onLoginSuccess }) {
     setErrorMsg('');
     setSuccessMsg('');
 
-    const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
+    const endpoint = isRegister ? '/auth/register' : '/auth/login';
 
     try {
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isRegister ? formData : {

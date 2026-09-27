@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import KycVerificationModal from './KycVerificationModal';
+import { API_BASE_URL } from '../config/api';
 
 export default function MerchantDashboard({ currentUser, onRefreshProducts, onRoleUpdated }) {
   const [data, setData] = useState(null);
@@ -25,7 +26,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/merchant/dashboard');
+      const res = await fetch(`${API_BASE_URL}/merchant/dashboard`);
       if (res.ok) {
         const result = await res.json();
         setData(result);
@@ -46,7 +47,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
     reader.readAsDataURL(file);
     reader.onloadend = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/upload/image', {
+        const res = await fetch(`${API_BASE_URL}/upload/image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: reader.result })
@@ -66,7 +67,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:5000/api/merchant/products', {
+      const res = await fetch(`${API_BASE_URL}/merchant/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct)
@@ -92,7 +93,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

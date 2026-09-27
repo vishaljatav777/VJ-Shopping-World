@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 export default function KycVerificationModal({ isOpen, onClose, role = 'MERCHANT', onKycComplete }) {
   if (!isOpen) return null;
@@ -25,11 +26,11 @@ export default function KycVerificationModal({ isOpen, onClose, role = 'MERCHANT
     setErrorMsg('');
 
     const isMerchant = role === 'MERCHANT';
-    const endpoint = isMerchant ? '/api/kyc/merchant/verify' : '/api/kyc/rider/verify';
+    const endpoint = isMerchant ? '/kyc/merchant/verify' : '/kyc/rider/verify';
     const payload = isMerchant ? merchantData : riderData;
 
     try {
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

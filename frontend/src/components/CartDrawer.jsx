@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 export default function CartDrawer({ 
   isOpen, 
@@ -58,7 +59,7 @@ export default function CartDrawer({
     setAuthError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/orders/checkout', {
+      const response = await fetch(`${API_BASE_URL}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
