@@ -173,4 +173,39 @@ router.delete('/account', authenticateJwt, async (req, res) => {
         return res.status(500).json({ error: 'Failed to delete account.' });
     }
 });
+// PUT /api/auth/role — Upgrade or update user role (BUYER -> MERCHANT / RIDER)
+router.put('/role', authenticateJwt, async (req, res) => {
+    try {
+        const { role } = req.body;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized user.' });
+        }
+        if (!['BUYER', 'MERCHANT', 'RIDER'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role.' });
+        }
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { role },
+            select: {
+                id: true,
+                name: true,
+                phoneNumber: true,
+                role: true,
+                isActive: true,
+                createdAt: true
+            }
+        });
+        const token = jwt.sign({ id: updatedUser.id, role: updatedUser.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
+        return res.json({
+            message: `Role successfully updated to ${role}`,
+            token,
+            user: updatedUser
+        });
+    }
+    catch (error) {
+        console.error('Role update error:', error);
+        return res.status(500).json({ error: 'Failed to update account role.' });
+    }
+});
 export default router;

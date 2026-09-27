@@ -94,16 +94,19 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-8 shadow-xl space-y-4">
-          <div className="w-16 h-16 bg-indigo-500/10 text-indigo-500 rounded-2xl flex items-center justify-center text-3xl mx-auto">
+          <div className="w-16 h-16 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm">
             🛵
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Delivery Partner Console Access</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             You must sign in or register an authorized Rider account with verified Driving License & vehicle details to pick up and dispatch orders.
           </p>
-          <div className="pt-4">
-            <a href="/auth" className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold text-sm shadow-md inline-block">
-              🔐 Sign In / Register as Rider Partner
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="/auth?role=RIDER" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-sm shadow-md inline-block">
+              🔐 Sign In as Delivery Rider
+            </a>
+            <a href="/auth?role=RIDER" className="px-6 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-full font-bold text-sm shadow-xs inline-block">
+              🛵 Register New Rider Partner
             </a>
           </div>
         </div>
@@ -117,12 +120,12 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-8 shadow-xl space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold">
+            <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-md">
               🛵
             </div>
             <div>
               <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Rider Partner Onboarding & Safety Rules</h2>
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Current Role: {currentUser.role} (Rider Credentials Required)</span>
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Current Role: {currentUser.role} (Rider Credentials Required)</span>
             </div>
           </div>
 
@@ -136,13 +139,13 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
             </ul>
           </div>
 
-          <div className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl">
             <input
               type="checkbox"
               id="riderRulesCheck"
               checked={agreedRiderRules}
               onChange={(e) => setAgreedRiderRules(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+              className="w-4 h-4 text-blue-600 rounded cursor-pointer"
             />
             <label htmlFor="riderRulesCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
               I agree to the Rider Partner Rules, safety regulations, and doorstep geofenced OTP verification protocol.
@@ -152,7 +155,7 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
           <button
             disabled={!agreedRiderRules}
             onClick={() => setShowKycModal(true)}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-full font-bold text-sm shadow-md transition-all"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-full font-bold text-sm shadow-md transition-all"
           >
             Submit DL & Aadhaar Credentials to Activate Rider Console ➔
           </button>
@@ -162,8 +165,26 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
           isOpen={showKycModal}
           onClose={() => setShowKycModal(false)}
           role="RIDER"
-          onKycComplete={() => {
+          onKycComplete={async () => {
             setShowKycModal(false);
+            try {
+              const token = localStorage.getItem('vj_token');
+              if (token) {
+                const res = await fetch(`${API_BASE_URL}/auth/role`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ role: 'RIDER' })
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.token) localStorage.setItem('vj_token', data.token);
+                }
+              }
+            } catch (err) {}
+
             const updatedUser = { ...currentUser, role: 'RIDER', isKycVerified: true };
             localStorage.setItem('vj_user', JSON.stringify(updatedUser));
             if (onRoleUpdated) onRoleUpdated(updatedUser);

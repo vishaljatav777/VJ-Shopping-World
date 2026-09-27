@@ -117,16 +117,19 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-8 shadow-xl space-y-4">
-          <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mx-auto">
+          <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm">
             🏪
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Merchant Seller Portal Access</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             You must sign in or register an authorized Merchant store account with verified statutory documents to list products and receive store orders.
           </p>
-          <div className="pt-4">
-            <a href="/auth" className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold text-sm shadow-md inline-block">
-              🔐 Sign In / Register as Seller
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="/auth?role=MERCHANT" className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-full font-bold text-sm shadow-md inline-block">
+              🔐 Sign In as Merchant Store
+            </a>
+            <a href="/auth?role=MERCHANT" className="px-6 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-full font-bold text-sm shadow-xs inline-block">
+              🏪 Register New Merchant Store
             </a>
           </div>
         </div>
@@ -140,7 +143,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-8 shadow-xl space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-2xl font-bold">
+            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-md">
               📋
             </div>
             <div>
@@ -159,13 +162,13 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
             </ul>
           </div>
 
-          <div className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+          <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl">
             <input
               type="checkbox"
               id="rulesCheck"
               checked={agreedRules}
               onChange={(e) => setAgreedRules(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+              className="w-4 h-4 text-amber-600 rounded cursor-pointer"
             />
             <label htmlFor="rulesCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
               I agree to the VJ Express Merchant Store Terms, GST rules, and 15-min dispatch SLA.
@@ -175,7 +178,7 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
           <button
             disabled={!agreedRules}
             onClick={() => setShowKycModal(true)}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-full font-bold text-sm shadow-md transition-all"
+            className="w-full py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-full font-bold text-sm shadow-md transition-all"
           >
             Submit GSTIN & Bank Verification to Activate Seller Dashboard ➔
           </button>
@@ -185,8 +188,26 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
           isOpen={showKycModal}
           onClose={() => setShowKycModal(false)}
           role="MERCHANT"
-          onKycComplete={() => {
+          onKycComplete={async () => {
             setShowKycModal(false);
+            try {
+              const token = localStorage.getItem('vj_token');
+              if (token) {
+                const res = await fetch(`${API_BASE_URL}/auth/role`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ role: 'MERCHANT' })
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.token) localStorage.setItem('vj_token', data.token);
+                }
+              }
+            } catch (err) {}
+
             const updatedUser = { ...currentUser, role: 'MERCHANT', isKycVerified: true };
             localStorage.setItem('vj_user', JSON.stringify(updatedUser));
             if (onRoleUpdated) onRoleUpdated(updatedUser);
