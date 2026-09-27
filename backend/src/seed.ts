@@ -45,7 +45,7 @@ const sampleProducts = [
     pricePaise: 199900, // ₹1,999.00
     stockQuantity: 45,
     isAvailable: true,
-    images: ['https://images.unsplash.com/photo-1609592424009-dd28731338d3?auto=format&fit=crop&w=600&q=80']
+    images: ['https://i03.appmifile.com/499_item_in/27/08/2024/3019f0e8675d6bb6f6499aeca9a77604!600x600!85.png']
   },
   {
     sku: 'FRESH-ORG-005',
