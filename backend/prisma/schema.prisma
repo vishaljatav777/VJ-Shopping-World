@@ -1,0 +1,159 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  BUYER
+  MERCHANT
+  RIDER
+  ADMIN
+}
+
+enum OrderStatus {
+  CREATED
+  PAYMENT_PENDING
+  MERCHANT_PREPARING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLATION_REQUESTED
+  RETURN_IN_TRANSIT
+  RETURNED_TO_STORE
+  REFUNDED
+}
+
+enum PaymentStatus {
+  INITIATED
+  AUTHORIZED
+  CAPTURED
+  ESCROW_HOLD
+  SETTLED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  phoneNumber  String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(BUYER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  buyerOrders  Order[]   @relation("BuyerOrders")
+  merchant     Merchant?
+  rider        Rider?
+}
+
+model Merchant {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  legalName          String
+  gstNumber          String   @unique
+  bankAccountNumber  String
+  bankIfsc           String
+  isKycVerified      Boolean  @default(false)
+  latitude           Float?
+  longitude          Float?
+  escrowBalancePaise BigInt   @default(0)
+  ledgerBalancePaise BigInt   @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders             Order[]
+  ledgerEntries      LedgerEntry[]
+}
+
+model Rider {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicleNumber      String   @unique
+  drivingLicense     String   @unique
+  isAvailable        Boolean  @default(false)
+  walletBalancePaise BigInt   @default(0)
+  currentLat         Float?
+  currentLng         Float?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  deliveries         Order[]  @relation("RiderDeliveries")
+}
+
+model Order {
+  id                  String        @id @default(uuid())
+  orderSequenceNumber BigInt        @default(autoincrement())
+  buyerId             String
+  buyer               User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  merchantId          String
+  merchant            Merchant      @relation(fields: [merchantId], references: [id])
+  riderId             String?
+  rider               Rider?        @relation("RiderDeliveries", fields: [riderId], references: [id])
+  
+  status              OrderStatus   @default(CREATED)
+  paymentStatus       PaymentStatus @default(INITIATED)
+  
+  subtotalAmount      BigInt        // In Paise
+  taxAmount           BigInt        // In Paise
+  deliveryFeeAmount   BigInt        // In Paise
+  discountAmount      BigInt        @default(0) // In Paise
+  totalAmount         BigInt        // In Paise
+
+  deliveryOtpHash     String?
+  cancellationOtpHash String?
+  returnOtpHash       String?
+
+  shippingAddress     Json
+  dropoffLatitude     Float?
+  dropoffLongitude    Float?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  ledgerEntries       LedgerEntry[]
+  outboxEvents        OutboxEvent[]
+
+  @@index([buyerId, status])
+  @@index([merchantId, status])
+  @@index([riderId, status])
+}
+
+model LedgerEntry {
+  id              String   @id @default(uuid())
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  merchantId      String?
+  merchant        Merchant? @relation(fields: [merchantId], references: [id])
+  accountType     String   // ESCROW, CASH_RECEIVABLE, MERCHANT_PAYABLE, PLATFORM_FEE
+  debitPaise      BigInt   @default(0)
+  creditPaise     BigInt   @default(0)
+  runningBalance  BigInt
+  transactionHash String
+  prevRecordHash  String
+  createdAt       DateTime @default(now())
+
+  @@index([merchantId, accountType])
+}
+
+model OutboxEvent {
+  id            String   @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  isProcessed   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  
+  orderId       String?
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([isProcessed, createdAt])
+}
