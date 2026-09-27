@@ -90,6 +90,12 @@ export default function UserProfile({ currentUser, onUserUpdated, onLogout }) {
     setSavedSuccess('');
     setErrorMsg('');
 
+    if (personalInfo.phoneNumber.length !== 10) {
+      setErrorMsg('Mobile number must be a valid 10-digit numeric phone number.');
+      setSaving(false);
+      return;
+    }
+
     const updatedUserObj = { ...user, ...personalInfo, isKycVerified: kycVerified };
 
     try {
@@ -278,13 +284,19 @@ export default function UserProfile({ currentUser, onUserUpdated, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Mobile Phone Number</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Mobile Phone Number (10 Digits)</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     required
                     value={personalInfo.phoneNumber}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, phoneNumber: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPersonalInfo({ ...personalInfo, phoneNumber: digits });
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono tracking-wider"
                   />
                 </div>
 
@@ -340,13 +352,18 @@ export default function UserProfile({ currentUser, onUserUpdated, onLogout }) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Pincode</label>
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Pincode (6 Digits)</label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={6}
                       value={personalInfo.pincode}
-                      onChange={(e) => setPersonalInfo({ ...personalInfo, pincode: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono"
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setPersonalInfo({ ...personalInfo, pincode: digits });
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono tracking-wider"
                     />
                   </div>
 
