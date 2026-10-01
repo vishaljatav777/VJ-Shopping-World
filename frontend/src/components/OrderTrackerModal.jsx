@@ -21,7 +21,7 @@ export default function OrderTrackerModal({ order, onClose, onAdvanceStatus, del
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">⚡ Express Order Live Tracker</h3>
