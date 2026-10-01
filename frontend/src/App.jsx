@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { API_BASE_URL } from './config/api';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -389,6 +390,7 @@ export default function App() {
 
         {/* Vercel Web Analytics */}
         <Analytics />
+        <SpeedInsights />
       </div>
     </BrowserRouter>
   );
