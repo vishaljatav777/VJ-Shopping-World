@@ -14,69 +14,6 @@ import RiderConsole from './components/RiderConsole';
 import AuthPage from './pages/AuthPage';
 import UserProfile from './pages/UserProfile';
 
-const sampleFallbackProducts = [
-  {
-    _id: '1',
-    sku: 'GROC-MILK-001',
-    title: 'Amul Taaza Toned Milk (1 Litre)',
-    description: 'Fresh pasteurized toned milk with optimal cream content.',
-    category: 'Grocery',
-    pricePaise: 6800,
-    stockQuantity: 150,
-    images: ['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80']
-  },
-  {
-    _id: '2',
-    sku: 'GROC-ATT-002',
-    title: 'Aashirvaad Shuddh Chakki Atta (5 kg)',
-    description: '100% pure whole wheat flour processed with traditional chakki process.',
-    category: 'Grocery',
-    pricePaise: 24500,
-    stockQuantity: 80,
-    images: ['https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80']
-  },
-  {
-    _id: '3',
-    sku: 'ELEC-HEAD-003',
-    title: 'boAt Rockerz 450 Wireless Headphones',
-    description: '40mm dynamic drivers, up to 15 hours playback, HD immersive sound.',
-    category: 'Electronics',
-    pricePaise: 149900,
-    stockQuantity: 30,
-    images: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80']
-  },
-  {
-    _id: '4',
-    sku: 'ELEC-POW-004',
-    title: 'Mi Power Bank 3i 20000mAh (18W Fast Charging)',
-    description: 'Dual output ports, triple input ports, smart power management.',
-    category: 'Electronics',
-    pricePaise: 199900,
-    stockQuantity: 45,
-    images: ['https://images.unsplash.com/photo-1609592424009-dd28731338d3?auto=format&fit=crop&w=600&q=80']
-  },
-  {
-    _id: '5',
-    sku: 'FRESH-ORG-005',
-    title: 'Organic Farm Fresh Bananas (1 Dozen)',
-    description: 'Naturally ripened, chemical-free delicious bananas sourced directly from local farmers.',
-    category: 'Fresh Produce',
-    pricePaise: 6000,
-    stockQuantity: 200,
-    images: ['https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80']
-  },
-  {
-    _id: '6',
-    sku: 'LOCAL-SWEET-006',
-    title: 'Special Local Kaju Katli (500g Box)',
-    description: 'Authentic rich cashew sweet prepared by VJ Local Mithai Store.',
-    category: 'Local Stores',
-    pricePaise: 45000,
-    stockQuantity: 25,
-    images: ['https://images.unsplash.com/photo-1599785209707-a456fc1337bb?auto=format&fit=crop&w=600&q=80']
-  }
-];
-
 export default function App() {
   const [products, setProducts] = useState([]);
   const [cartItems, setCartItems] = useState([]);
@@ -145,15 +82,15 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/products`);
       if (res.ok) {
         const data = await res.json();
-        if (data.products && data.products.length > 0) {
+        if (data.products && Array.isArray(data.products)) {
           setProducts(data.products);
           return;
         }
       }
-      setProducts(sampleFallbackProducts);
+      setProducts([]);
     } catch (err) {
-      console.warn('Backend API connection warning, using seeded product dataset:', err);
-      setProducts(sampleFallbackProducts);
+      console.warn('Backend API connection error:', err);
+      setProducts([]);
     }
   };
 
@@ -180,9 +117,9 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sku: product.sku || 'GROC-MILK-001',
+          sku: product.sku || '',
           quantity: change,
-          buyerPhone: '9876543210'
+          buyerPhone: currentUser?.phoneNumber || ''
         })
       }).catch(() => {});
     }

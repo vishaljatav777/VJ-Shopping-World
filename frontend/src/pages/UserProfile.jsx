@@ -12,14 +12,14 @@ export default function UserProfile({ currentUser, onUserUpdated, onLogout }) {
 
   // Personal details state
   const [personalInfo, setPersonalInfo] = useState({
-    name: user.name || 'Vishal User',
-    phoneNumber: user.phoneNumber || '9876543210',
-    email: user.email || 'vishal@vjexpress.com',
+    name: user.name || '',
+    phoneNumber: user.phoneNumber || '',
+    email: user.email || '',
     role: user.role || 'BUYER',
-    address: user.address || 'Flat 402, Green Valley Apartments, Sector 62',
-    city: user.city || 'Noida',
-    pincode: user.pincode || '201301',
-    state: user.state || 'Uttar Pradesh'
+    address: user.address || '',
+    city: user.city || '',
+    pincode: user.pincode || '',
+    state: user.state || ''
   });
 
   const [saving, setSaving] = useState(false);

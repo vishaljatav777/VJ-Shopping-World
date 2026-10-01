@@ -219,10 +219,10 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
   }
 
   const merchant = data?.merchant || {
-    legalName: 'VJ Express Merchant Store',
-    gstNumber: '07AAAAA0000A1Z5',
-    isKycVerified: true,
-    ledgerBalancePaise: '450000'
+    legalName: currentUser?.name ? `${currentUser.name}'s Store` : 'My Seller Store',
+    gstNumber: 'Not Registered / Pending Verification',
+    isKycVerified: currentUser?.isKycVerified || false,
+    ledgerBalancePaise: '0'
   };
 
   const orders = data?.orders || [];

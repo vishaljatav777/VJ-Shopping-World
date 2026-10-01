@@ -196,10 +196,10 @@ export default function RiderConsole({ currentUser, onRoleUpdated }) {
   }
 
   const rider = data?.rider || {
-    vehicleNumber: 'DL-01-AB-1234',
-    drivingLicense: 'DL1420110012345',
+    vehicleNumber: 'Pending Vehicle Registration',
+    drivingLicense: 'Pending Verification',
     isAvailable: true,
-    isKycVerified: true
+    isKycVerified: currentUser?.isKycVerified || false
   };
 
   const deliveries = data?.deliveries || [];

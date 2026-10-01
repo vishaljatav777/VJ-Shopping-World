@@ -10,9 +10,9 @@ export default function AuthPage({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
 
   const [formData, setFormData] = useState({
-    phoneNumber: '9876543210',
-    password: 'Password123!',
-    name: 'Vishal User',
+    phoneNumber: '',
+    password: '',
+    name: '',
     role: initialRole
   });
 
