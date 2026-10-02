@@ -47,12 +47,13 @@ router.post('/register', async (req, res: Response) => {
         }
       });
     } catch (dbErr: any) {
-      if (dbErr?.code === 'P2022' || dbErr?.message?.includes('User.email')) {
+      console.warn('Registration query with email failed, falling back to phoneNumber query:', dbErr?.message || dbErr);
+      try {
         existingUser = await prisma.user.findFirst({
           where: { phoneNumber }
         });
-      } else {
-        throw dbErr;
+      } catch (fallbackErr) {
+        console.error('Registration database lookup error:', fallbackErr);
       }
     }
 
@@ -83,18 +84,15 @@ router.post('/register', async (req, res: Response) => {
         }
       });
     } catch (createErr: any) {
-      if (createErr?.code === 'P2022' || createErr?.message?.includes('User.email')) {
-        user = await prisma.user.create({
-          data: {
-            phoneNumber,
-            passwordHash,
-            name,
-            role
-          }
-        });
-      } else {
-        throw createErr;
-      }
+      console.warn('Registration user creation with email failed, falling back without email:', createErr?.message || createErr);
+      user = await prisma.user.create({
+        data: {
+          phoneNumber,
+          passwordHash,
+          name,
+          role
+        }
+      });
     }
 
     // Issue JWT
@@ -116,9 +114,9 @@ router.post('/register', async (req, res: Response) => {
         createdAt: user.createdAt
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration Error:', error);
-    return res.status(500).json({ error: 'Internal server error during registration.' });
+    return res.status(500).json({ error: error?.message || 'Internal server error during registration.' });
   }
 });
 
@@ -149,12 +147,13 @@ router.post('/login', async (req, res: Response) => {
         }
       });
     } catch (findErr: any) {
-      if (findErr?.code === 'P2022' || findErr?.message?.includes('User.email')) {
+      console.warn('Login attempt with email failed, falling back to phoneNumber lookup:', findErr?.message || findErr);
+      try {
         user = await prisma.user.findFirst({
           where: { phoneNumber: loginId }
         });
-      } else {
-        throw findErr;
+      } catch (fallbackErr) {
+        console.error('Login database query error:', fallbackErr);
       }
     }
 
@@ -180,13 +179,13 @@ router.post('/login', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
-        email: user.email,
+        email: user.email || null,
         role: user.role
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login Error:', error);
-    return res.status(500).json({ error: 'Internal server error during login.' });
+    return res.status(500).json({ error: error?.message || 'Internal server error during login.' });
   }
 });
 
