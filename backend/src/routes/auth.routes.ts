@@ -35,15 +35,26 @@ router.post('/register', async (req, res: Response) => {
     const { phoneNumber, email, password, name, role } = parseResult.data;
     const cleanEmail = email ? email.trim().toLowerCase() : null;
 
-    // Check if user exists by phone or email
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { phoneNumber },
-          ...(cleanEmail ? [{ email: cleanEmail }] : [])
-        ]
+    // Check if user exists by phone or email (with resilient fallback for DB schema)
+    let existingUser = null;
+    try {
+      existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phoneNumber },
+            ...(cleanEmail ? [{ email: cleanEmail }] : [])
+          ]
+        }
+      });
+    } catch (dbErr: any) {
+      if (dbErr?.code === 'P2022' || dbErr?.message?.includes('User.email')) {
+        existingUser = await prisma.user.findFirst({
+          where: { phoneNumber }
+        });
+      } else {
+        throw dbErr;
       }
-    });
+    }
 
     if (existingUser) {
       if (existingUser.phoneNumber === phoneNumber) {
@@ -59,16 +70,32 @@ router.post('/register', async (req, res: Response) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        phoneNumber,
-        email: cleanEmail,
-        passwordHash,
-        name,
-        role
+    // Create user with graceful fallback if email column is absent
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          phoneNumber,
+          ...(cleanEmail ? { email: cleanEmail } : {}),
+          passwordHash,
+          name,
+          role
+        }
+      });
+    } catch (createErr: any) {
+      if (createErr?.code === 'P2022' || createErr?.message?.includes('User.email')) {
+        user = await prisma.user.create({
+          data: {
+            phoneNumber,
+            passwordHash,
+            name,
+            role
+          }
+        });
+      } else {
+        throw createErr;
       }
-    });
+    }
 
     // Issue JWT
     const token = jwt.sign(
@@ -84,7 +111,7 @@ router.post('/register', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
-        email: user.email,
+        email: user.email || null,
         role: user.role,
         createdAt: user.createdAt
       }
@@ -110,15 +137,26 @@ router.post('/login', async (req, res: Response) => {
       return res.status(400).json({ error: 'Please enter your email or 10-digit mobile number.' });
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { phoneNumber: loginId },
-          { email: loginId.toLowerCase() },
-          { email: loginId }
-        ]
+    let user = null;
+    try {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phoneNumber: loginId },
+            { email: loginId.toLowerCase() },
+            { email: loginId }
+          ]
+        }
+      });
+    } catch (findErr: any) {
+      if (findErr?.code === 'P2022' || findErr?.message?.includes('User.email')) {
+        user = await prisma.user.findFirst({
+          where: { phoneNumber: loginId }
+        });
+      } else {
+        throw findErr;
       }
-    });
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
