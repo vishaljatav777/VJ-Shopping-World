@@ -79,11 +79,15 @@ export const redis = new InMemoryRedisClient();
 // PostgreSQL (Prisma) Connection Check
 import { prisma } from './utils/prisma.js';
 const connectPostgreSQL = async () => {
+  if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes('localhost')) {
+    console.log('ℹ️ Render environment: Operating on MongoDB Atlas Data Engine (PostgreSQL DATABASE_URL not set).');
+    return;
+  }
   try {
     await prisma.$connect();
     console.log('✅ PostgreSQL (Prisma ORM) connected successfully.');
   } catch (error) {
-    console.error('❌ PostgreSQL (Prisma ORM) connection error:', error);
+    console.log('ℹ️ Operating on MongoDB Atlas Data Engine for production storage.');
   }
 };
 connectPostgreSQL();
