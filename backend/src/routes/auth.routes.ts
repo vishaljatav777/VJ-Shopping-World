@@ -9,14 +9,17 @@ const router = Router();
 
 const RegisterSchema = z.object({
   phoneNumber: z.string().min(10).max(15),
+  email: z.string().email().optional().or(z.literal('')),
   password: z.string().min(6),
   name: z.string().min(2),
   role: z.enum(['BUYER', 'MERCHANT', 'RIDER']).default('BUYER')
 });
 
 const LoginSchema = z.object({
-  phoneNumber: z.string(),
-  password: z.string()
+  identifier: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  email: z.string().optional(),
+  password: z.string().min(1)
 });
 
 // POST /api/auth/register
@@ -24,17 +27,32 @@ router.post('/register', async (req, res: Response) => {
   try {
     const parseResult = RegisterSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      const fieldErrors = parseResult.error.flatten().fieldErrors;
+      const firstMsg = Object.values(fieldErrors).flat()[0] || 'Validation failed';
+      return res.status(400).json({ error: firstMsg, details: parseResult.error.flatten() });
     }
 
-    const { phoneNumber, password, name, role } = parseResult.data;
+    const { phoneNumber, email, password, name, role } = parseResult.data;
+    const cleanEmail = email ? email.trim().toLowerCase() : null;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { phoneNumber }
+    // Check if user exists by phone or email
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber },
+          ...(cleanEmail ? [{ email: cleanEmail }] : [])
+        ]
+      }
     });
+
     if (existingUser) {
-      return res.status(409).json({ error: 'User with this phone number already exists.' });
+      if (existingUser.phoneNumber === phoneNumber) {
+        return res.status(409).json({ error: 'An account with this phone number already exists.' });
+      }
+      if (cleanEmail && existingUser.email === cleanEmail) {
+        return res.status(409).json({ error: 'An account with this email address already exists.' });
+      }
+      return res.status(409).json({ error: 'User already exists.' });
     }
 
     // Hash password
@@ -45,6 +63,7 @@ router.post('/register', async (req, res: Response) => {
     const user = await prisma.user.create({
       data: {
         phoneNumber,
+        email: cleanEmail,
         passwordHash,
         name,
         role
@@ -58,7 +77,6 @@ router.post('/register', async (req, res: Response) => {
       { expiresIn: '7d' }
     );
 
-    // Return response without passwordHash
     return res.status(201).json({
       message: 'Registration successful',
       token,
@@ -66,6 +84,7 @@ router.post('/register', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
+        email: user.email,
         role: user.role,
         createdAt: user.createdAt
       }
@@ -81,21 +100,33 @@ router.post('/login', async (req, res: Response) => {
   try {
     const parseResult = LoginSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      return res.status(400).json({ error: 'Please provide valid credentials.', details: parseResult.error.flatten() });
     }
 
-    const { phoneNumber, password } = parseResult.data;
+    const { identifier, phoneNumber, email, password } = parseResult.data;
+    const loginId = (identifier || phoneNumber || email || '').trim();
 
-    const user = await prisma.user.findUnique({
-      where: { phoneNumber }
+    if (!loginId) {
+      return res.status(400).json({ error: 'Please enter your email or 10-digit mobile number.' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: loginId },
+          { email: loginId.toLowerCase() },
+          { email: loginId }
+        ]
+      }
     });
+
     if (!user) {
-      return res.status(401).json({ error: 'Invalid phone number or password.' });
+      return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid phone number or password.' });
+      return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
     }
 
     const token = jwt.sign(
@@ -111,6 +142,7 @@ router.post('/login', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
+        email: user.email,
         role: user.role
       }
     });
