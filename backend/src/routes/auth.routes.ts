@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
+import UserMongo from '../models/user.model.js';
 import { authenticateJwt, AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -22,6 +23,120 @@ const LoginSchema = z.object({
   password: z.string().min(1)
 });
 
+// Resilient User Lookup (Tries PostgreSQL Prisma first, falls back to MongoDB Atlas)
+async function findUserByCredentials(identifier: string) {
+  const clean = identifier.trim();
+  const cleanLower = clean.toLowerCase();
+
+  // 1. Try PostgreSQL via Prisma
+  try {
+    const pUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: clean },
+          { email: cleanLower },
+          { email: clean }
+        ]
+      }
+    });
+    if (pUser) {
+      return {
+        id: pUser.id,
+        name: pUser.name,
+        phoneNumber: pUser.phoneNumber,
+        email: pUser.email || null,
+        passwordHash: pUser.passwordHash,
+        role: pUser.role || 'BUYER',
+        createdAt: pUser.createdAt
+      };
+    }
+  } catch (pErr) {
+    try {
+      const pUserPhone = await prisma.user.findFirst({
+        where: { phoneNumber: clean }
+      });
+      if (pUserPhone) {
+        return {
+          id: pUserPhone.id,
+          name: pUserPhone.name,
+          phoneNumber: pUserPhone.phoneNumber,
+          email: pUserPhone.email || null,
+          passwordHash: pUserPhone.passwordHash,
+          role: pUserPhone.role || 'BUYER',
+          createdAt: pUserPhone.createdAt
+        };
+      }
+    } catch {}
+  }
+
+  // 2. Try MongoDB Atlas Fallback
+  try {
+    const mUser = await UserMongo.findOne({
+      $or: [
+        { phoneNumber: clean },
+        { email: cleanLower }
+      ]
+    });
+    if (mUser) {
+      return {
+        id: mUser._id.toString(),
+        name: mUser.name,
+        phoneNumber: mUser.phoneNumber,
+        email: mUser.email || null,
+        passwordHash: mUser.passwordHash,
+        role: mUser.role || 'BUYER',
+        createdAt: mUser.createdAt
+      };
+    }
+  } catch (mErr) {}
+
+  return null;
+}
+
+// Resilient User Creation (Tries PostgreSQL Prisma first, falls back to MongoDB Atlas)
+async function createUserRecord(data: { phoneNumber: string; email?: string | null; passwordHash: string; name: string; role: string }) {
+  // 1. Try PostgreSQL via Prisma
+  try {
+    const pUser = await prisma.user.create({
+      data: {
+        phoneNumber: data.phoneNumber,
+        ...(data.email ? { email: data.email } : {}),
+        passwordHash: data.passwordHash,
+        name: data.name,
+        role: data.role as any
+      }
+    });
+    return {
+      id: pUser.id,
+      name: pUser.name,
+      phoneNumber: pUser.phoneNumber,
+      email: pUser.email || null,
+      role: pUser.role,
+      createdAt: pUser.createdAt
+    };
+  } catch (pErr: any) {
+    console.warn('PostgreSQL creation unavailable, storing user in MongoDB Atlas:', pErr?.message || pErr);
+  }
+
+  // 2. Fallback to MongoDB Atlas
+  const mUser = await UserMongo.create({
+    phoneNumber: data.phoneNumber,
+    email: data.email || undefined,
+    passwordHash: data.passwordHash,
+    name: data.name,
+    role: data.role
+  });
+
+  return {
+    id: mUser._id.toString(),
+    name: mUser.name,
+    phoneNumber: mUser.phoneNumber,
+    email: mUser.email || null,
+    role: mUser.role,
+    createdAt: mUser.createdAt
+  };
+}
+
 // POST /api/auth/register
 router.post('/register', async (req, res: Response) => {
   try {
@@ -35,27 +150,8 @@ router.post('/register', async (req, res: Response) => {
     const { phoneNumber, email, password, name, role } = parseResult.data;
     const cleanEmail = email ? email.trim().toLowerCase() : null;
 
-    // Check if user exists by phone or email (with resilient fallback for DB schema)
-    let existingUser = null;
-    try {
-      existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { phoneNumber },
-            ...(cleanEmail ? [{ email: cleanEmail }] : [])
-          ]
-        }
-      });
-    } catch (dbErr: any) {
-      console.warn('Registration query with email failed, falling back to phoneNumber query:', dbErr?.message || dbErr);
-      try {
-        existingUser = await prisma.user.findFirst({
-          where: { phoneNumber }
-        });
-      } catch (fallbackErr) {
-        console.error('Registration database lookup error:', fallbackErr);
-      }
-    }
+    // Check if user already exists
+    const existingUser = await findUserByCredentials(phoneNumber) || (cleanEmail ? await findUserByCredentials(cleanEmail) : null);
 
     if (existingUser) {
       if (existingUser.phoneNumber === phoneNumber) {
@@ -71,29 +167,14 @@ router.post('/register', async (req, res: Response) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Create user with graceful fallback if email column is absent
-    let user;
-    try {
-      user = await prisma.user.create({
-        data: {
-          phoneNumber,
-          ...(cleanEmail ? { email: cleanEmail } : {}),
-          passwordHash,
-          name,
-          role
-        }
-      });
-    } catch (createErr: any) {
-      console.warn('Registration user creation with email failed, falling back without email:', createErr?.message || createErr);
-      user = await prisma.user.create({
-        data: {
-          phoneNumber,
-          passwordHash,
-          name,
-          role
-        }
-      });
-    }
+    // Create User Record
+    const user = await createUserRecord({
+      phoneNumber,
+      email: cleanEmail,
+      passwordHash,
+      name,
+      role
+    });
 
     // Issue JWT
     const token = jwt.sign(
@@ -109,7 +190,7 @@ router.post('/register', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
-        email: user.email || null,
+        email: user.email,
         role: user.role,
         createdAt: user.createdAt
       }
@@ -135,27 +216,7 @@ router.post('/login', async (req, res: Response) => {
       return res.status(400).json({ error: 'Please enter your email or 10-digit mobile number.' });
     }
 
-    let user = null;
-    try {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { phoneNumber: loginId },
-            { email: loginId.toLowerCase() },
-            { email: loginId }
-          ]
-        }
-      });
-    } catch (findErr: any) {
-      console.warn('Login attempt with email failed, falling back to phoneNumber lookup:', findErr?.message || findErr);
-      try {
-        user = await prisma.user.findFirst({
-          where: { phoneNumber: loginId }
-        });
-      } catch (fallbackErr) {
-        console.error('Login database query error:', fallbackErr);
-      }
-    }
+    const user = await findUserByCredentials(loginId);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
@@ -179,7 +240,7 @@ router.post('/login', async (req, res: Response) => {
         id: user.id,
         name: user.name,
         phoneNumber: user.phoneNumber,
-        email: user.email || null,
+        email: user.email,
         role: user.role
       }
     });
@@ -192,19 +253,41 @@ router.post('/login', async (req, res: Response) => {
 // GET /api/auth/me
 router.get('/me', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user?.id },
-      select: {
-        id: true,
-        name: true,
-        phoneNumber: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        merchant: true,
-        rider: true
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized user.' });
+
+    let user: any = null;
+
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          merchant: true,
+          rider: true
+        }
+      });
+    } catch {}
+
+    if (!user) {
+      const mUser = await UserMongo.findById(userId);
+      if (mUser) {
+        user = {
+          id: mUser._id.toString(),
+          name: mUser.name,
+          phoneNumber: mUser.phoneNumber,
+          email: mUser.email || null,
+          role: mUser.role || 'BUYER',
+          isActive: mUser.isActive,
+          createdAt: mUser.createdAt
+        };
       }
-    });
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User profile not found.' });
@@ -226,21 +309,47 @@ router.put('/profile', authenticateJwt, async (req: AuthRequest, res: Response) 
       return res.status(401).json({ error: 'Unauthorized user.' });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(name ? { name } : {}),
-        ...(phoneNumber ? { phoneNumber } : {})
-      },
-      select: {
-        id: true,
-        name: true,
-        phoneNumber: true,
-        role: true,
-        isActive: true,
-        createdAt: true
+    let updatedUser: any = null;
+
+    try {
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(name ? { name } : {}),
+          ...(phoneNumber ? { phoneNumber } : {})
+        },
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true,
+          role: true,
+          isActive: true,
+          createdAt: true
+        }
+      });
+    } catch {}
+
+    if (!updatedUser) {
+      const mUser = await UserMongo.findByIdAndUpdate(
+        userId,
+        {
+          ...(name ? { name } : {}),
+          ...(phoneNumber ? { phoneNumber } : {})
+        },
+        { new: true }
+      );
+      if (mUser) {
+        updatedUser = {
+          id: mUser._id.toString(),
+          name: mUser.name,
+          phoneNumber: mUser.phoneNumber,
+          email: mUser.email || null,
+          role: mUser.role || 'BUYER',
+          isActive: mUser.isActive,
+          createdAt: mUser.createdAt
+        };
       }
-    });
+    }
 
     return res.json({
       message: 'Profile details updated successfully',
@@ -260,10 +369,14 @@ router.delete('/account', authenticateJwt, async (req: AuthRequest, res: Respons
       return res.status(401).json({ error: 'Unauthorized user.' });
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false }
-    });
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { isActive: false }
+      });
+    } catch {
+      await UserMongo.findByIdAndUpdate(userId, { isActive: false });
+    }
 
     return res.json({ message: 'Account deleted successfully.' });
   } catch (error) {
@@ -286,18 +399,37 @@ router.put('/role', authenticateJwt, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: 'Invalid role.' });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { role },
-      select: {
-        id: true,
-        name: true,
-        phoneNumber: true,
-        role: true,
-        isActive: true,
-        createdAt: true
+    let updatedUser: any = null;
+
+    try {
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { role },
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true,
+          role: true,
+          isActive: true,
+          createdAt: true
+        }
+      });
+    } catch {}
+
+    if (!updatedUser) {
+      const mUser = await UserMongo.findByIdAndUpdate(userId, { role }, { new: true });
+      if (mUser) {
+        updatedUser = {
+          id: mUser._id.toString(),
+          name: mUser.name,
+          phoneNumber: mUser.phoneNumber,
+          email: mUser.email || null,
+          role: mUser.role || 'BUYER',
+          isActive: mUser.isActive,
+          createdAt: mUser.createdAt
+        };
       }
-    });
+    }
 
     const token = jwt.sign(
       { id: updatedUser.id, role: updatedUser.role },
