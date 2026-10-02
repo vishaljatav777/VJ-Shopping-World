@@ -8,6 +8,7 @@ node_modules/
 
 # Production & Build outputs
 /dist
+backend/dist/
 /build
 *.tsbuildinfo
 

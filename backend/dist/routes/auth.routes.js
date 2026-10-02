@@ -7,44 +7,89 @@ import { authenticateJwt } from '../middleware/auth.middleware.js';
 const router = Router();
 const RegisterSchema = z.object({
     phoneNumber: z.string().min(10).max(15),
+    email: z.string().email().optional().or(z.literal('')),
     password: z.string().min(6),
     name: z.string().min(2),
     role: z.enum(['BUYER', 'MERCHANT', 'RIDER']).default('BUYER')
 });
 const LoginSchema = z.object({
-    phoneNumber: z.string(),
-    password: z.string()
+    identifier: z.string().optional(),
+    phoneNumber: z.string().optional(),
+    email: z.string().optional(),
+    password: z.string().min(1)
 });
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
     try {
         const parseResult = RegisterSchema.safeParse(req.body);
         if (!parseResult.success) {
-            return res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+            const fieldErrors = parseResult.error.flatten().fieldErrors;
+            const firstMsg = Object.values(fieldErrors).flat()[0] || 'Validation failed';
+            return res.status(400).json({ error: firstMsg, details: parseResult.error.flatten() });
         }
-        const { phoneNumber, password, name, role } = parseResult.data;
-        // Check if user exists
-        const existingUser = await prisma.user.findUnique({
-            where: { phoneNumber }
-        });
+        const { phoneNumber, email, password, name, role } = parseResult.data;
+        const cleanEmail = email ? email.trim().toLowerCase() : null;
+        // Check if user exists by phone or email (with resilient fallback for DB schema)
+        let existingUser = null;
+        try {
+            existingUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { phoneNumber },
+                        ...(cleanEmail ? [{ email: cleanEmail }] : [])
+                    ]
+                }
+            });
+        }
+        catch (dbErr) {
+            console.warn('Registration query with email failed, falling back to phoneNumber query:', dbErr?.message || dbErr);
+            try {
+                existingUser = await prisma.user.findFirst({
+                    where: { phoneNumber }
+                });
+            }
+            catch (fallbackErr) {
+                console.error('Registration database lookup error:', fallbackErr);
+            }
+        }
         if (existingUser) {
-            return res.status(409).json({ error: 'User with this phone number already exists.' });
+            if (existingUser.phoneNumber === phoneNumber) {
+                return res.status(409).json({ error: 'An account with this phone number already exists.' });
+            }
+            if (cleanEmail && existingUser.email === cleanEmail) {
+                return res.status(409).json({ error: 'An account with this email address already exists.' });
+            }
+            return res.status(409).json({ error: 'User already exists.' });
         }
         // Hash password
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        // Create user
-        const user = await prisma.user.create({
-            data: {
-                phoneNumber,
-                passwordHash,
-                name,
-                role
-            }
-        });
+        // Create user with graceful fallback if email column is absent
+        let user;
+        try {
+            user = await prisma.user.create({
+                data: {
+                    phoneNumber,
+                    ...(cleanEmail ? { email: cleanEmail } : {}),
+                    passwordHash,
+                    name,
+                    role
+                }
+            });
+        }
+        catch (createErr) {
+            console.warn('Registration user creation with email failed, falling back without email:', createErr?.message || createErr);
+            user = await prisma.user.create({
+                data: {
+                    phoneNumber,
+                    passwordHash,
+                    name,
+                    role
+                }
+            });
+        }
         // Issue JWT
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
-        // Return response without passwordHash
         return res.status(201).json({
             message: 'Registration successful',
             token,
@@ -52,6 +97,7 @@ router.post('/register', async (req, res) => {
                 id: user.id,
                 name: user.name,
                 phoneNumber: user.phoneNumber,
+                email: user.email || null,
                 role: user.role,
                 createdAt: user.createdAt
             }
@@ -59,7 +105,7 @@ router.post('/register', async (req, res) => {
     }
     catch (error) {
         console.error('Registration Error:', error);
-        return res.status(500).json({ error: 'Internal server error during registration.' });
+        return res.status(500).json({ error: error?.message || 'Internal server error during registration.' });
     }
 });
 // POST /api/auth/login
@@ -67,18 +113,42 @@ router.post('/login', async (req, res) => {
     try {
         const parseResult = LoginSchema.safeParse(req.body);
         if (!parseResult.success) {
-            return res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+            return res.status(400).json({ error: 'Please provide valid credentials.', details: parseResult.error.flatten() });
         }
-        const { phoneNumber, password } = parseResult.data;
-        const user = await prisma.user.findUnique({
-            where: { phoneNumber }
-        });
+        const { identifier, phoneNumber, email, password } = parseResult.data;
+        const loginId = (identifier || phoneNumber || email || '').trim();
+        if (!loginId) {
+            return res.status(400).json({ error: 'Please enter your email or 10-digit mobile number.' });
+        }
+        let user = null;
+        try {
+            user = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { phoneNumber: loginId },
+                        { email: loginId.toLowerCase() },
+                        { email: loginId }
+                    ]
+                }
+            });
+        }
+        catch (findErr) {
+            console.warn('Login attempt with email failed, falling back to phoneNumber lookup:', findErr?.message || findErr);
+            try {
+                user = await prisma.user.findFirst({
+                    where: { phoneNumber: loginId }
+                });
+            }
+            catch (fallbackErr) {
+                console.error('Login database query error:', fallbackErr);
+            }
+        }
         if (!user) {
-            return res.status(401).json({ error: 'Invalid phone number or password.' });
+            return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
         }
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid phone number or password.' });
+            return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
         }
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
         return res.json({
@@ -88,13 +158,14 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 name: user.name,
                 phoneNumber: user.phoneNumber,
+                email: user.email || null,
                 role: user.role
             }
         });
     }
     catch (error) {
         console.error('Login Error:', error);
-        return res.status(500).json({ error: 'Internal server error during login.' });
+        return res.status(500).json({ error: error?.message || 'Internal server error during login.' });
     }
 });
 // GET /api/auth/me

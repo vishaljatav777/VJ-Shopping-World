@@ -76,6 +76,18 @@ class InMemoryRedisClient {
 
 export const redis = new InMemoryRedisClient();
 
+// PostgreSQL (Prisma) Connection Check
+import { prisma } from './utils/prisma.js';
+const connectPostgreSQL = async () => {
+  try {
+    await prisma.$connect();
+    console.log('✅ PostgreSQL (Prisma ORM) connected successfully.');
+  } catch (error) {
+    console.error('❌ PostgreSQL (Prisma ORM) connection error:', error);
+  }
+};
+connectPostgreSQL();
+
 // MongoDB Connection
 const connectMongoDB = async () => {
   try {
