@@ -38,11 +38,15 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
     }
   };
 
+  const [modalError, setModalError] = useState('');
+  const [modalSuccess, setModalSuccess] = useState('');
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setUploadingImage(true);
+    setModalError('');
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onloadend = async () => {
@@ -53,11 +57,14 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
           body: JSON.stringify({ imageBase64: reader.result })
         });
         const data = await res.json();
-        if (res.ok && data.url) {
+        if (data.url) {
           setNewProduct((prev) => ({ ...prev, imageUrl: data.url }));
+        } else {
+          setModalError('Failed to parse uploaded image URL.');
         }
       } catch (err) {
-        console.error('Image upload failed:', err);
+        console.error('Image upload error:', err);
+        setModalError('Image upload failed. Please try a smaller image.');
       } finally {
         setUploadingImage(false);
       }
@@ -66,14 +73,36 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
 
   const handleCreateProduct = async (e) => {
     e.preventDefault();
+    setModalError('');
+    setModalSuccess('');
+
+    if (!newProduct.title.trim()) {
+      setModalError('Please enter a product title.');
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/merchant/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProduct)
+        body: JSON.stringify({
+          ...newProduct,
+          priceRupees: Number(newProduct.priceRupees) || 0,
+          stockQuantity: Number(newProduct.stockQuantity) || 0
+        })
       });
-      if (res.ok) {
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setModalError(data.error || 'Failed to save product. Please check input values.');
+        return;
+      }
+
+      setModalSuccess('✓ Product added successfully to your store catalog!');
+      setTimeout(() => {
         setShowAddModal(false);
+        setModalSuccess('');
         setNewProduct({
           sku: '',
           title: '',
@@ -85,9 +114,10 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
         });
         fetchDashboard();
         if (onRefreshProducts) onRefreshProducts();
-      }
+      }, 800);
     } catch (err) {
       console.error('Error creating product:', err);
+      setModalError('Network error while saving product.');
     }
   };
 
@@ -332,6 +362,16 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
             <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4">+ Add Store Product</h3>
+            {modalError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-600 dark:text-rose-400 mb-4">
+                ⚠️ {modalError}
+              </div>
+            )}
+            {modalSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 mb-4">
+                {modalSuccess}
+              </div>
+            )}
             <form onSubmit={handleCreateProduct} className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Product Title</label>

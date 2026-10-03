@@ -11,8 +11,8 @@ const createProductSchema = z.object({
   title: z.string().min(2),
   description: z.string().min(2),
   category: z.string(),
-  priceRupees: z.number().positive(),
-  stockQuantity: z.number().int().nonnegative(),
+  priceRupees: z.coerce.number().positive(),
+  stockQuantity: z.coerce.number().int().nonnegative(),
   imageUrl: z.string().optional()
 });
 
