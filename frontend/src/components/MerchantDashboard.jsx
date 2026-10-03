@@ -47,28 +47,60 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
 
     setUploadingImage(true);
     setModalError('');
+
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/upload/image`, {
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round(height * (MAX_WIDTH / width));
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round(width * (MAX_HEIGHT / height));
+            height = MAX_HEIGHT;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        // Set instant preview immediately for amazing UX
+        setNewProduct((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
+
+        fetch(`${API_BASE_URL}/upload/image`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: reader.result })
-        });
-        const data = await res.json();
-        if (data.url) {
-          setNewProduct((prev) => ({ ...prev, imageUrl: data.url }));
-        } else {
-          setModalError('Failed to parse uploaded image URL.');
-        }
-      } catch (err) {
-        console.error('Image upload error:', err);
-        setModalError('Image upload failed. Please try a smaller image.');
-      } finally {
-        setUploadingImage(false);
-      }
+          body: JSON.stringify({ imageBase64: compressedDataUrl })
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.url) {
+              setNewProduct((prev) => ({ ...prev, imageUrl: data.url }));
+            }
+          })
+          .catch((err) => {
+            console.warn('Cloudinary upload sync warning, using client compressed image:', err);
+          })
+          .finally(() => {
+            setUploadingImage(false);
+          });
+      };
     };
+    reader.readAsDataURL(file);
   };
 
   const handleCreateProduct = async (e) => {
