@@ -93,12 +93,28 @@ const connectPostgreSQL = async () => {
 };
 connectPostgreSQL();
 
-// MongoDB Connection
+// MongoDB Connection (Product Data Engine ONLY)
 const connectMongoDB = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/vj_shopping_world';
     await mongoose.connect(mongoUri);
-    console.log('✅ MongoDB connected successfully.');
+    console.log('✅ MongoDB connected successfully for Product storage ONLY.');
+
+    // Automatically purge legacy user collections from MongoDB Atlas if present
+    try {
+      const db = mongoose.connection.db;
+      if (db) {
+        const collections = await db.listCollections().toArray();
+        for (const col of collections) {
+          if (col.name.toLowerCase().includes('user')) {
+            await db.dropCollection(col.name);
+            console.log(`🧹 Purged legacy collection '${col.name}' from MongoDB Atlas. User data is strictly in PostgreSQL.`);
+          }
+        }
+      }
+    } catch (cleanErr) {
+      console.warn('MongoDB collection check notice:', cleanErr);
+    }
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
   }
