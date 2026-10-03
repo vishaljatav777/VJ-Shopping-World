@@ -433,22 +433,49 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
                 </div>
               </div>
 
-              {/* Cloudinary Image Upload */}
+              {/* Product Image File Dropzone & Instant Preview */}
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
-                  ☁️ Cloudinary Product Image Upload
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5 flex items-center justify-between">
+                  <span>📸 Product Image</span>
+                  {uploadingImage && <span className="text-xs text-amber-500 font-bold animate-pulse">☁️ Uploading Image...</span>}
+                  {newProduct.imageUrl && !uploadingImage && <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Image Ready</span>}
                 </label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="text-xs text-slate-500 dark:text-slate-400"
-                />
-                {uploadingImage && <span className="text-xs text-amber-500 ml-2">Uploading to Cloudinary...</span>}
-                {newProduct.imageUrl && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <img src={newProduct.imageUrl} alt="Uploaded preview" className="w-10 h-10 object-cover rounded border border-slate-200 dark:border-slate-700" />
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Cloudinary URL Attached</span>
+
+                {newProduct.imageUrl ? (
+                  <div className="relative p-2 bg-slate-50 dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
+                    <img
+                      src={newProduct.imageUrl}
+                      alt="Product Preview"
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Image Attached</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{newProduct.imageUrl}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewProduct((prev) => ({ ...prev, imageUrl: '' }))}
+                      className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold transition-all border border-rose-200 dark:border-rose-800"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-xl p-4 text-center transition-all bg-slate-50 dark:bg-slate-900/50">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="productImageFileInput"
+                    />
+                    <label htmlFor="productImageFileInput" className="cursor-pointer flex flex-col items-center gap-1.5">
+                      <span className="text-2xl">📷</span>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        Click to Choose Product Image
+                      </span>
+                      <span className="text-[10px] text-slate-400">JPG, PNG, WebP up to 10MB</span>
+                    </label>
                   </div>
                 )}
               </div>
@@ -459,14 +486,25 @@ export default function MerchantDashboard({ currentUser, onRefreshProducts, onRo
                   required 
                   value={newProduct.description}
                   onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  placeholder="Describe key product details..."
                   className="w-full px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 h-16"
                 />
               </div>
 
-              <div className="flex gap-2 justify-end pt-2">
-                <button type="button" className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full font-semibold text-xs" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold text-xs shadow-xs" disabled={uploadingImage}>
-                  {uploadingImage ? 'Uploading Image...' : 'Save Product'}
+              <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                <button
+                  type="button"
+                  className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-full font-bold text-xs transition-all"
+                  onClick={() => setShowAddModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white rounded-full font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? '☁️ Uploading Image...' : '💾 Save & Add Product'}
                 </button>
               </div>
             </form>
