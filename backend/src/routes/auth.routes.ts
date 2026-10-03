@@ -57,6 +57,14 @@ async function findUserByCredentials(identifier: string) {
 
 // PostgreSQL Prisma User & Merchant / Rider Account Creation
 async function createUserRecord(data: { phoneNumber: string; email?: string | null; passwordHash: string; name: string; role: string }) {
+  console.log(`\n======================================================`);
+  console.log(`👤 NEW USER REGISTRATION: Saving to PostgreSQL Database...`);
+  console.log(`   - Name: ${data.name}`);
+  console.log(`   - Phone: ${data.phoneNumber}`);
+  console.log(`   - Role: ${data.role}`);
+  console.log(`   - Storage Target: PostgreSQL ORM (Zero MongoDB storage)`);
+  console.log(`======================================================\n`);
+
   const pUser = await prisma.user.create({
     data: {
       phoneNumber: data.phoneNumber,
@@ -67,10 +75,12 @@ async function createUserRecord(data: { phoneNumber: string; email?: string | nu
     }
   });
 
+  console.log(`✅ USER SAVED IN POSTGRESQL! User ID: ${pUser.id}`);
+
   // If Merchant, auto-create Merchant Store profile in PostgreSQL
   if (data.role === 'MERCHANT') {
     try {
-      await prisma.merchant.create({
+      const merchant = await prisma.merchant.create({
         data: {
           userId: pUser.id,
           legalName: `${data.name}'s Express Store`,
@@ -80,6 +90,7 @@ async function createUserRecord(data: { phoneNumber: string; email?: string | nu
           isKycVerified: true
         }
       });
+      console.log(`🏬 MERCHANT PROFILE SAVED IN POSTGRESQL! Merchant ID: ${merchant.id}`);
     } catch (mErr) {
       console.warn('Merchant auto-profile creation notice:', mErr);
     }
@@ -88,7 +99,7 @@ async function createUserRecord(data: { phoneNumber: string; email?: string | nu
   // If Rider, auto-create Rider profile in PostgreSQL
   if (data.role === 'RIDER') {
     try {
-      await prisma.rider.create({
+      const rider = await prisma.rider.create({
         data: {
           userId: pUser.id,
           vehicleNumber: `DL-01-${Date.now().toString().slice(-4)}`,
@@ -96,6 +107,7 @@ async function createUserRecord(data: { phoneNumber: string; email?: string | nu
           isAvailable: true
         }
       });
+      console.log(`🛵 RIDER PROFILE SAVED IN POSTGRESQL! Rider ID: ${rider.id}`);
     } catch (rErr) {
       console.warn('Rider auto-profile creation notice:', rErr);
     }
@@ -200,6 +212,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Invalid phone number / email or password.' });
       return;
     }
+
+    console.log(`🔐 LOGIN SUCCESS: Authenticated User [ID: ${user.id}, Name: ${user.name}, Role: ${user.role}] from PostgreSQL`);
 
     const token = jwt.sign(
       { id: user.id, role: user.role },
