@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { redis } from '../index.js';
-import Product from '../models/product.model.js';
+import { prisma } from '../utils/prisma.js';
 import { authenticateJwt } from '../middleware/auth.middleware.js';
 const router = Router();
 const ReserveCartSchema = z.object({
@@ -17,8 +17,8 @@ router.post('/reserve', authenticateJwt, async (req, res) => {
         }
         const { sku, quantity } = parseResult.data;
         const userId = req.user.id;
-        // Check actual stock in MongoDB
-        const product = await Product.findOne({ sku });
+        // Check actual stock in PostgreSQL
+        const product = await prisma.product.findUnique({ where: { sku } }).catch(() => null);
         if (!product || !product.isAvailable) {
             return res.status(404).json({ error: 'Product unavailable or out of stock.' });
         }

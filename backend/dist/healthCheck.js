@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import { prisma } from './utils/prisma.js';
 dotenv.config();
 console.log('====================================================');
@@ -9,53 +8,41 @@ async function runHealthCheck() {
     // 1. PostgreSQL (Prisma)
     try {
         await prisma.$queryRaw `SELECT 1;`;
-        console.log('  ✅ PostgreSQL (Prisma ORM)       : CONNECTED SUCCESSFULLY');
+        console.log('  ✅ PostgreSQL Data Engine (Prisma ORM): CONNECTED SUCCESSFULLY (100% Data Storage)');
     }
     catch (err) {
-        console.log('  ⚠️ PostgreSQL (Prisma ORM)       : NOT CONNECTED (Using In-Memory Fallback)');
+        console.log('  ⚠️ PostgreSQL Data Engine (Prisma ORM): NOT CONNECTED (Using Fallback)');
     }
-    // 2. MongoDB Atlas (Mongoose)
-    try {
-        const mongoUri = process.env.MONGODB_URI;
-        if (!mongoUri)
-            throw new Error('MONGODB_URI not defined');
-        await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
-        console.log('  ✅ MongoDB Atlas (Mongoose)      : CONNECTED SUCCESSFULLY');
-        await mongoose.disconnect();
-    }
-    catch (err) {
-        console.log('  ⚠️ MongoDB Atlas (Mongoose)      : NOT CONNECTED (Using Seeded Catalog Fallback)');
-    }
-    // 3. Ephemeral Stock Cache Engine
-    console.log('  ✅ Ephemeral Stock Cache Engine  : LIVE & OPERATIONAL (In-Memory Engine)');
-    // 4. Backend Express API (Port 5000)
+    // 2. Ephemeral Stock Cache Engine
+    console.log('  ✅ Ephemeral Stock Cache Engine       : LIVE & OPERATIONAL (In-Memory Engine)');
+    // 3. Backend Express API (Port 5000)
     try {
         const res = await fetch('http://localhost:5000/api/health');
         if (res.ok) {
-            console.log('  ✅ Express Backend API Server    : LIVE & ONLINE (http://localhost:5000)');
+            console.log('  ✅ Express Backend API Server         : LIVE & ONLINE (http://localhost:5000)');
         }
         else {
-            console.log('  ❌ Express Backend API Server    : UNHEALTHY RESPONSES');
+            console.log('  ❌ Express Backend API Server         : UNHEALTHY RESPONSES');
         }
     }
     catch (err) {
-        console.log('  ❌ Express Backend API Server    : SERVER OFFLINE');
+        console.log('  ❌ Express Backend API Server         : SERVER OFFLINE');
     }
-    // 5. Frontend Vite Dev Server (Port 5173 / 5174)
+    // 4. Frontend Vite Dev Server (Port 5173 / 5174)
     try {
         let res = await fetch('http://localhost:5173/').catch(() => null);
         if (!res || !res.ok) {
             res = await fetch('http://localhost:5174/').catch(() => null);
         }
         if (res && res.ok) {
-            console.log('  ✅ Vite Frontend Web App         : LIVE & ONLINE (http://localhost:5173)');
+            console.log('  ✅ Vite Frontend Web App              : LIVE & ONLINE (http://localhost:5173)');
         }
         else {
-            console.log('  ❌ Vite Frontend Web App         : SERVER OFFLINE');
+            console.log('  ❌ Vite Frontend Web App              : SERVER OFFLINE');
         }
     }
     catch (err) {
-        console.log('  ❌ Vite Frontend Web App         : SERVER OFFLINE');
+        console.log('  ❌ Vite Frontend Web App              : SERVER OFFLINE');
     }
     console.log('\n====================================================');
     console.log('🔑 API KEYS & ENVIRONMENT CONFIGURATION DIAGNOSTIC');
@@ -102,12 +89,6 @@ async function runHealthCheck() {
     }
     else {
         console.log('  ⚠️ PostgreSQL Database URL         : NOT SET');
-    }
-    if (process.env.MONGODB_URI) {
-        console.log('  ✅ MongoDB Atlas URI Connection    : PERFECTLY WORKING (Configured)');
-    }
-    else {
-        console.log('  ⚠️ MongoDB Atlas URI Connection    : NOT SET');
     }
     console.log('\n====================================================');
     console.log('🚀 BACKEND API ENDPOINTS LIVE HEALTH DIAGNOSTIC');

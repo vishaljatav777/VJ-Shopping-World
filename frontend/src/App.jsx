@@ -277,7 +277,7 @@ export default function App() {
 
         {/* Live Order Tracker Modal */}
         <OrderTrackerModal
-          order={activeOrder}
+          order={isTrackerOpen ? activeOrder : null}
           onClose={() => setIsTrackerOpen(false)}
           onAdvanceStatus={handleAdvanceOrderStatus}
           deliveryOtp={activeDeliveryOtp}

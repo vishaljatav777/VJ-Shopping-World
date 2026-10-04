@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
-import Product from '../models/product.model.js';
 import { generateHandshakeOtp, calculateHaversineDistanceMeters, evaluateOrderRisk, calculateGstTaxSplit } from '../utils/securityEngine.js';
 const router = Router();
 // Zod Checkout Schema with Strict Quantity Caps (Max 10 per SKU)
@@ -42,10 +41,10 @@ router.post('/checkout', async (req, res) => {
             res.status(404).json({ error: 'Merchant store not found' });
             return;
         }
-        // Recalculate Subtotal on Server in Paise from MongoDB products
+        // Recalculate Subtotal on Server in Paise from PostgreSQL products
         let calculatedSubtotalPaise = 0n;
         for (const item of items) {
-            const product = await Product.findById(item.productId);
+            const product = await prisma.product.findUnique({ where: { id: item.productId } }).catch(() => null);
             if (!product || !product.isAvailable) {
                 res.status(400).json({ error: `Product unavailable: ${item.productId}` });
                 return;

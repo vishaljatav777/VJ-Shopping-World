@@ -18,165 +18,210 @@ const LoginSchema = z.object({
     email: z.string().optional(),
     password: z.string().min(1)
 });
-// POST /api/auth/register
+// PostgreSQL Prisma User Lookup
+async function findUserByCredentials(identifier) {
+    const clean = identifier.trim();
+    const cleanLower = clean.toLowerCase();
+    try {
+        const pUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { phoneNumber: clean },
+                    { email: cleanLower },
+                    { email: clean }
+                ]
+            }
+        });
+        if (pUser) {
+            return {
+                id: pUser.id,
+                name: pUser.name,
+                phoneNumber: pUser.phoneNumber,
+                email: pUser.email || null,
+                passwordHash: pUser.passwordHash,
+                role: pUser.role || 'BUYER',
+                createdAt: pUser.createdAt
+            };
+        }
+    }
+    catch (error) {
+        console.error('PostgreSQL user lookup error:', error);
+    }
+    return null;
+}
+// PostgreSQL Prisma User & Merchant / Rider Account Creation
+async function createUserRecord(data) {
+    console.log(`\n======================================================`);
+    console.log(`👤 NEW USER REGISTRATION: Saving to PostgreSQL Database...`);
+    console.log(`   - Name: ${data.name}`);
+    console.log(`   - Phone: ${data.phoneNumber}`);
+    console.log(`   - Role: ${data.role}`);
+    console.log(`   - Storage Target: PostgreSQL ORM Database`);
+    console.log(`======================================================\n`);
+    const pUser = await prisma.user.create({
+        data: {
+            phoneNumber: data.phoneNumber,
+            ...(data.email ? { email: data.email } : {}),
+            passwordHash: data.passwordHash,
+            name: data.name,
+            role: data.role
+        }
+    });
+    console.log(`✅ USER SAVED IN POSTGRESQL! User ID: ${pUser.id}`);
+    // If Merchant, auto-create Merchant Store profile in PostgreSQL
+    if (data.role === 'MERCHANT') {
+        try {
+            const merchant = await prisma.merchant.create({
+                data: {
+                    userId: pUser.id,
+                    legalName: `${data.name}'s Express Store`,
+                    gstNumber: `07${Date.now().toString().slice(-10)}Z1`,
+                    bankAccountNumber: `ACC${Date.now().toString().slice(-8)}`,
+                    bankIfsc: 'VJEX0001234',
+                    isKycVerified: true
+                }
+            });
+            console.log(`🏬 MERCHANT PROFILE SAVED IN POSTGRESQL! Merchant ID: ${merchant.id}`);
+        }
+        catch (mErr) {
+            console.warn('Merchant auto-profile creation notice:', mErr);
+        }
+    }
+    // If Rider, auto-create Rider profile in PostgreSQL
+    if (data.role === 'RIDER') {
+        try {
+            const rider = await prisma.rider.create({
+                data: {
+                    userId: pUser.id,
+                    vehicleNumber: `DL-01-${Date.now().toString().slice(-4)}`,
+                    drivingLicense: `DL-LIC-${Date.now().toString().slice(-6)}`,
+                    isAvailable: true
+                }
+            });
+            console.log(`🛵 RIDER PROFILE SAVED IN POSTGRESQL! Rider ID: ${rider.id}`);
+        }
+        catch (rErr) {
+            console.warn('Rider auto-profile creation notice:', rErr);
+        }
+    }
+    return {
+        id: pUser.id,
+        name: pUser.name,
+        phoneNumber: pUser.phoneNumber,
+        email: pUser.email || null,
+        role: pUser.role,
+        createdAt: pUser.createdAt
+    };
+}
+// POST /api/auth/register — Register new user into PostgreSQL
 router.post('/register', async (req, res) => {
     try {
         const parseResult = RegisterSchema.safeParse(req.body);
         if (!parseResult.success) {
-            const fieldErrors = parseResult.error.flatten().fieldErrors;
-            const firstMsg = Object.values(fieldErrors).flat()[0] || 'Validation failed';
-            return res.status(400).json({ error: firstMsg, details: parseResult.error.flatten() });
+            res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+            return;
         }
         const { phoneNumber, email, password, name, role } = parseResult.data;
-        const cleanEmail = email ? email.trim().toLowerCase() : null;
-        // Check if user exists by phone or email (with resilient fallback for DB schema)
-        let existingUser = null;
-        try {
-            existingUser = await prisma.user.findFirst({
-                where: {
-                    OR: [
-                        { phoneNumber },
-                        ...(cleanEmail ? [{ email: cleanEmail }] : [])
-                    ]
-                }
-            });
-        }
-        catch (dbErr) {
-            console.warn('Registration query with email failed, falling back to phoneNumber query:', dbErr?.message || dbErr);
-            try {
-                existingUser = await prisma.user.findFirst({
-                    where: { phoneNumber }
-                });
-            }
-            catch (fallbackErr) {
-                console.error('Registration database lookup error:', fallbackErr);
-            }
-        }
+        const cleanPhone = phoneNumber.replace(/\D/g, '');
+        const formattedEmail = email && email.trim() !== '' ? email.trim().toLowerCase() : null;
+        // Check existing user in PostgreSQL
+        const existingUser = await findUserByCredentials(cleanPhone);
         if (existingUser) {
-            if (existingUser.phoneNumber === phoneNumber) {
-                return res.status(409).json({ error: 'An account with this phone number already exists.' });
+            res.status(409).json({ error: 'Account with this phone number already exists.' });
+            return;
+        }
+        if (formattedEmail) {
+            const existingEmail = await findUserByCredentials(formattedEmail);
+            if (existingEmail) {
+                res.status(409).json({ error: 'Account with this email address already exists.' });
+                return;
             }
-            if (cleanEmail && existingUser.email === cleanEmail) {
-                return res.status(409).json({ error: 'An account with this email address already exists.' });
-            }
-            return res.status(409).json({ error: 'User already exists.' });
         }
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-        // Create user with graceful fallback if email column is absent
-        let user;
-        try {
-            user = await prisma.user.create({
-                data: {
-                    phoneNumber,
-                    ...(cleanEmail ? { email: cleanEmail } : {}),
-                    passwordHash,
-                    name,
-                    role
-                }
-            });
-        }
-        catch (createErr) {
-            console.warn('Registration user creation with email failed, falling back without email:', createErr?.message || createErr);
-            user = await prisma.user.create({
-                data: {
-                    phoneNumber,
-                    passwordHash,
-                    name,
-                    role
-                }
-            });
-        }
-        // Issue JWT
-        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
-        return res.status(201).json({
-            message: 'Registration successful',
+        const passwordHash = await bcrypt.hash(password, 10);
+        const newUser = await createUserRecord({
+            phoneNumber: cleanPhone,
+            email: formattedEmail,
+            passwordHash,
+            name,
+            role
+        });
+        const token = jwt.sign({ id: newUser.id, role: newUser.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
+        res.status(201).json({
+            message: 'Account created successfully in PostgreSQL database!',
             token,
             user: {
-                id: user.id,
-                name: user.name,
-                phoneNumber: user.phoneNumber,
-                email: user.email || null,
-                role: user.role,
-                createdAt: user.createdAt
+                id: newUser.id,
+                name: newUser.name,
+                phoneNumber: newUser.phoneNumber,
+                email: newUser.email,
+                role: newUser.role,
+                createdAt: newUser.createdAt
             }
         });
     }
     catch (error) {
-        console.error('Registration Error:', error);
-        return res.status(500).json({ error: error?.message || 'Internal server error during registration.' });
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Registration process failed', message: error?.message || 'Server error' });
     }
 });
-// POST /api/auth/login
+// POST /api/auth/login — Authenticate user from PostgreSQL
 router.post('/login', async (req, res) => {
     try {
         const parseResult = LoginSchema.safeParse(req.body);
         if (!parseResult.success) {
-            return res.status(400).json({ error: 'Please provide valid credentials.', details: parseResult.error.flatten() });
+            res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+            return;
         }
         const { identifier, phoneNumber, email, password } = parseResult.data;
-        const loginId = (identifier || phoneNumber || email || '').trim();
-        if (!loginId) {
-            return res.status(400).json({ error: 'Please enter your email or 10-digit mobile number.' });
+        const loginTarget = identifier || phoneNumber || email;
+        if (!loginTarget) {
+            res.status(400).json({ error: 'Phone number or email is required for login.' });
+            return;
         }
-        let user = null;
-        try {
-            user = await prisma.user.findFirst({
-                where: {
-                    OR: [
-                        { phoneNumber: loginId },
-                        { email: loginId.toLowerCase() },
-                        { email: loginId }
-                    ]
-                }
-            });
-        }
-        catch (findErr) {
-            console.warn('Login attempt with email failed, falling back to phoneNumber lookup:', findErr?.message || findErr);
-            try {
-                user = await prisma.user.findFirst({
-                    where: { phoneNumber: loginId }
-                });
-            }
-            catch (fallbackErr) {
-                console.error('Login database query error:', fallbackErr);
-            }
-        }
+        const user = await findUserByCredentials(loginTarget);
         if (!user) {
-            return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
+            res.status(401).json({ error: 'Invalid phone number / email or password.' });
+            return;
         }
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid email/mobile number or password.' });
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
+            res.status(401).json({ error: 'Invalid phone number / email or password.' });
+            return;
         }
+        console.log(`🔐 LOGIN SUCCESS: Authenticated User [ID: ${user.id}, Name: ${user.name}, Role: ${user.role}] from PostgreSQL`);
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'vj_shopping_world_jwt_super_secret_key_2026', { expiresIn: '7d' });
-        return res.json({
+        res.json({
             message: 'Login successful',
             token,
             user: {
                 id: user.id,
                 name: user.name,
                 phoneNumber: user.phoneNumber,
-                email: user.email || null,
-                role: user.role
+                email: user.email,
+                role: user.role,
+                createdAt: user.createdAt
             }
         });
     }
     catch (error) {
-        console.error('Login Error:', error);
-        return res.status(500).json({ error: error?.message || 'Internal server error during login.' });
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login process failed', message: error?.message || 'Server error' });
     }
 });
-// GET /api/auth/me
+// GET /api/auth/me — Fetch current authenticated user profile from PostgreSQL
 router.get('/me', authenticateJwt, async (req, res) => {
     try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized token.' });
+        }
         const user = await prisma.user.findUnique({
-            where: { id: req.user?.id },
+            where: { id: userId },
             select: {
                 id: true,
                 name: true,
                 phoneNumber: true,
+                email: true,
                 role: true,
                 isActive: true,
                 createdAt: true,
@@ -185,15 +230,16 @@ router.get('/me', authenticateJwt, async (req, res) => {
             }
         });
         if (!user) {
-            return res.status(404).json({ error: 'User profile not found.' });
+            return res.status(404).json({ error: 'User profile not found in PostgreSQL database.' });
         }
         return res.json({ user });
     }
     catch (error) {
+        console.error('Fetch me error:', error);
         return res.status(500).json({ error: 'Failed to fetch user profile.' });
     }
 });
-// PUT /api/auth/profile — Update customer personal profile
+// PUT /api/auth/profile — Update customer personal profile in PostgreSQL
 router.put('/profile', authenticateJwt, async (req, res) => {
     try {
         const { name, phoneNumber } = req.body;
@@ -211,13 +257,14 @@ router.put('/profile', authenticateJwt, async (req, res) => {
                 id: true,
                 name: true,
                 phoneNumber: true,
+                email: true,
                 role: true,
                 isActive: true,
                 createdAt: true
             }
         });
         return res.json({
-            message: 'Profile details updated successfully',
+            message: 'Profile details updated successfully in PostgreSQL database',
             user: updatedUser
         });
     }
@@ -226,7 +273,7 @@ router.put('/profile', authenticateJwt, async (req, res) => {
         return res.status(500).json({ error: 'Failed to update profile.' });
     }
 });
-// DELETE /api/auth/account — Delete customer account
+// DELETE /api/auth/account — Delete user account in PostgreSQL
 router.delete('/account', authenticateJwt, async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -237,14 +284,14 @@ router.delete('/account', authenticateJwt, async (req, res) => {
             where: { id: userId },
             data: { isActive: false }
         });
-        return res.json({ message: 'Account deleted successfully.' });
+        return res.json({ message: 'Account disabled successfully in PostgreSQL database.' });
     }
     catch (error) {
         console.error('Delete account error:', error);
         return res.status(500).json({ error: 'Failed to delete account.' });
     }
 });
-// PUT /api/auth/role — Upgrade or update user role (BUYER -> MERCHANT / RIDER)
+// PUT /api/auth/role — Upgrade user role in PostgreSQL
 router.put('/role', authenticateJwt, async (req, res) => {
     try {
         const { role } = req.body;
@@ -262,6 +309,7 @@ router.put('/role', authenticateJwt, async (req, res) => {
                 id: true,
                 name: true,
                 phoneNumber: true,
+                email: true,
                 role: true,
                 isActive: true,
                 createdAt: true
