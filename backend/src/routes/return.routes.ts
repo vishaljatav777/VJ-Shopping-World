@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma.js';
-import Product from '../models/product.model.js';
 
 const router = Router();
 

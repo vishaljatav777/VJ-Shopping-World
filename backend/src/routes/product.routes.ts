@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import mongoose from 'mongoose';
-import Product from '../models/product.model.js';
+import { prisma } from '../utils/prisma.js';
 import { authenticateJwt, requireRole, AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -19,6 +18,7 @@ const ProductCreateSchema = z.object({
 const fallbackProducts = [
   {
     _id: '1',
+    id: '1',
     sku: 'GROC-MILK-001',
     title: 'Amul Taaza Toned Milk (1 Litre)',
     description: 'Fresh pasteurized toned milk with optimal cream content.',
@@ -30,6 +30,7 @@ const fallbackProducts = [
   },
   {
     _id: '2',
+    id: '2',
     sku: 'GROC-ATT-002',
     title: 'Aashirvaad Shuddh Chakki Atta (5 kg)',
     description: '100% pure whole wheat flour processed with traditional chakki process.',
@@ -41,6 +42,7 @@ const fallbackProducts = [
   },
   {
     _id: '3',
+    id: '3',
     sku: 'ELEC-HEAD-003',
     title: 'boAt Rockerz 450 Wireless Headphones',
     description: '40mm dynamic drivers, up to 15 hours playback, HD immersive sound.',
@@ -52,6 +54,7 @@ const fallbackProducts = [
   },
   {
     _id: '4',
+    id: '4',
     sku: 'ELEC-POW-004',
     title: 'Mi Power Bank 3i 20000mAh (18W Fast Charging)',
     description: 'Dual output ports, triple input ports, smart power management.',
@@ -63,6 +66,7 @@ const fallbackProducts = [
   },
   {
     _id: '5',
+    id: '5',
     sku: 'FRESH-ORG-005',
     title: 'Organic Farm Fresh Bananas (1 Dozen)',
     description: 'Naturally ripened, chemical-free delicious bananas sourced directly from local farmers.',
@@ -74,46 +78,68 @@ const fallbackProducts = [
   }
 ];
 
-// GET /api/products — Fetch catalog
+function serializeProduct(p: any) {
+  return {
+    ...p,
+    _id: p.id,
+    pricePaise: Number(p.pricePaise)
+  };
+}
+
+// GET /api/products — Fetch catalog from PostgreSQL
 router.get('/', async (req: Request, res: Response) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      console.warn('MongoDB not connected, serving fallback catalog.');
+    const { category, search } = req.query;
+    const whereFilter: any = { isAvailable: true };
+
+    if (category) {
+      whereFilter.category = String(category);
+    }
+    if (search) {
+      whereFilter.title = { contains: String(search), mode: 'insensitive' };
+    }
+
+    const products = await prisma.product.findMany({
+      where: whereFilter,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (products.length === 0) {
       return res.json({ count: fallbackProducts.length, products: fallbackProducts });
     }
 
-    const { category, search } = req.query;
-    const queryFilter: any = { isAvailable: true };
-
-    if (category) {
-      queryFilter.category = String(category);
-    }
-    if (search) {
-      queryFilter.title = { $regex: String(search), $options: 'i' };
-    }
-
-    const products = await Product.find(queryFilter).sort({ createdAt: -1 });
-    return res.json({ count: products.length, products });
+    const serialized = products.map(serializeProduct);
+    return res.json({ count: serialized.length, products: serialized });
   } catch (error) {
-    console.warn('MongoDB query warning, using fallback catalog:', error);
+    console.warn('PostgreSQL product query fallback:', error);
     return res.json({ count: fallbackProducts.length, products: fallbackProducts });
   }
 });
 
-// GET /api/products/:id — Fetch single product
+// GET /api/products/:id — Fetch single product from PostgreSQL
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const prodId = String(req.params.id);
+    const product = await prisma.product.findUnique({
+      where: { id: prodId }
+    });
+
     if (!product) {
+      const fallback = fallbackProducts.find(f => f.id === prodId || f._id === prodId);
+      if (fallback) return res.json({ product: fallback });
       return res.status(404).json({ error: 'Product not found.' });
     }
-    return res.json({ product });
+
+    return res.json({ product: serializeProduct(product) });
   } catch (error) {
+    const prodId = String(req.params.id);
+    const fallback = fallbackProducts.find(f => f.id === prodId || f._id === prodId);
+    if (fallback) return res.json({ product: fallback });
     return res.status(500).json({ error: 'Failed to fetch product details.' });
   }
 });
 
-// POST /api/products — Create product (Merchant role only)
+// POST /api/products — Create product in PostgreSQL (Merchant role only)
 router.post('/', authenticateJwt, requireRole(['MERCHANT', 'ADMIN']), async (req: AuthRequest, res: Response) => {
   try {
     const parseResult = ProductCreateSchema.safeParse(req.body);
@@ -121,82 +147,55 @@ router.post('/', authenticateJwt, requireRole(['MERCHANT', 'ADMIN']), async (req
       return res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
     }
 
-    const newProduct = await Product.create({
-      ...parseResult.data,
-      merchantId: req.user!.id
+    const { sku, title, description, category, pricePaise, stockQuantity, images } = parseResult.data;
+
+    const newProduct = await prisma.product.create({
+      data: {
+        sku,
+        title,
+        description,
+        category,
+        pricePaise: BigInt(pricePaise),
+        stockQuantity,
+        isAvailable: stockQuantity > 0,
+        images,
+        merchantId: req.user!.id
+      }
     });
 
-    return res.status(201).json({ message: 'Product created successfully', product: newProduct });
+    return res.status(201).json({ message: 'Product created successfully in PostgreSQL!', product: serializeProduct(newProduct) });
   } catch (error: any) {
-    if (error.code === 11000) {
+    console.error('Create product error:', error);
+    if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Product SKU must be unique.' });
     }
     return res.status(500).json({ error: 'Failed to create product.' });
   }
 });
 
-// POST /api/products/seed — Seed 5 initial test products
+// POST /api/products/seed — Seed test products into PostgreSQL
 router.post('/seed', async (_req: Request, res: Response) => {
   try {
-    const sampleProducts = [
-      {
-        sku: 'SKU-SAR-01',
-        title: 'Kanjivaram Silk Saree',
-        description: 'Authentic handcrafted pure silk saree with Zari border.',
-        category: 'Fashion & Ethnic Wear',
-        pricePaise: 499900, // ₹4,999.00
-        stockQuantity: 15,
-        images: ['https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500'],
-        merchantId: 'merchant-seed-01'
-      },
-      {
-        sku: 'SKU-SHI-02',
-        title: 'Slim-Fit Linen Casual Shirt',
-        description: '100% breathable cotton-linen shirt for summer comfort.',
-        category: 'Men Fashion',
-        pricePaise: 129900, // ₹1,299.00
-        stockQuantity: 40,
-        images: ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500'],
-        merchantId: 'merchant-seed-01'
-      },
-      {
-        sku: 'SKU-SHO-03',
-        title: 'Pro-Runner Cushioning Sneakers',
-        description: 'Lightweight breathable mesh running shoes with air cushion.',
-        category: 'Footwear & Sports',
-        pricePaise: 249900, // ₹2,499.00
-        stockQuantity: 25,
-        images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500'],
-        merchantId: 'merchant-seed-02'
-      },
-      {
-        sku: 'SKU-BAG-04',
-        title: 'Italian Genuine Leather Handbag',
-        description: 'Handcrafted luxury leather handbag with gold accents.',
-        category: 'Fashion Accessories',
-        pricePaise: 399900, // ₹3,999.00
-        stockQuantity: 10,
-        images: ['https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500'],
-        merchantId: 'merchant-seed-02'
-      },
-      {
-        sku: 'SKU-EAR-05',
-        title: 'True Wireless Noise Cancelling Earbuds',
-        description: 'Active Noise Cancellation with 30-hour battery life.',
-        category: 'Electronics & Audio',
-        pricePaise: 199900, // ₹1,999.00
-        stockQuantity: 50,
-        images: ['https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500'],
-        merchantId: 'merchant-seed-03'
-      }
-    ];
-
-    for (const prod of sampleProducts) {
-      await Product.updateOne({ sku: prod.sku }, { $set: prod }, { upsert: true });
+    for (const prod of fallbackProducts) {
+      await prisma.product.upsert({
+        where: { sku: prod.sku },
+        update: {},
+        create: {
+          sku: prod.sku,
+          title: prod.title,
+          description: prod.description,
+          category: prod.category,
+          pricePaise: BigInt(prod.pricePaise),
+          stockQuantity: prod.stockQuantity,
+          isAvailable: prod.isAvailable,
+          images: prod.images
+        }
+      });
     }
 
-    return res.json({ message: '5 sample test products seeded successfully.' });
+    return res.json({ message: 'Sample test products seeded successfully into PostgreSQL.' });
   } catch (error) {
+    console.error('Seed products error:', error);
     return res.status(500).json({ error: 'Failed to seed sample products.' });
   }
 });

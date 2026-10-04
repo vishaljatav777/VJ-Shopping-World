@@ -1,8 +1,6 @@
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { prisma } from './utils/prisma.js';
-import Product from './models/product.model.js';
 
 dotenv.config();
 
@@ -71,18 +69,14 @@ const sampleProducts = [
 
 async function seed() {
   try {
-    console.log('🌱 Starting database seed script...');
+    console.log('🌱 Starting PostgreSQL database seed script...');
+    await prisma.$connect();
 
-    // 1. Connect MongoDB
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/vj_shopping_world';
-    await mongoose.connect(mongoUri);
-    console.log('✅ MongoDB connected for seeding.');
-
-    // 2. Create Demo Users & Roles in PostgreSQL via Prisma
+    // 1. Create Demo Users & Roles in PostgreSQL via Prisma
     const passwordHash = await bcrypt.hash('Password123!', 10);
 
     // Buyer User
-    const buyerUser = await prisma.user.upsert({
+    await prisma.user.upsert({
       where: { phoneNumber: '9876543210' },
       update: {},
       create: {
@@ -149,14 +143,26 @@ async function seed() {
 
     console.log('✅ PostgreSQL demo users, merchant, and rider seeded.');
 
-    // 3. Seed MongoDB Products
-    await Product.deleteMany({});
-    const productsToInsert = sampleProducts.map((p) => ({
-      ...p,
-      merchantId: merchant.id
-    }));
-    await Product.insertMany(productsToInsert);
-    console.log(`✅ MongoDB seeded with ${sampleProducts.length} products.`);
+    // 2. Seed PostgreSQL Products
+    for (const p of sampleProducts) {
+      await prisma.product.upsert({
+        where: { sku: p.sku },
+        update: {},
+        create: {
+          sku: p.sku,
+          title: p.title,
+          description: p.description,
+          category: p.category,
+          pricePaise: BigInt(p.pricePaise),
+          stockQuantity: p.stockQuantity,
+          isAvailable: p.isAvailable,
+          images: p.images,
+          merchantId: merchant.id
+        }
+      });
+    }
+
+    console.log(`✅ PostgreSQL seeded with ${sampleProducts.length} products.`);
 
     console.log('🎉 Seeding completed successfully!');
     process.exit(0);

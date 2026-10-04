@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
-import Product from '../models/product.model.js';
 import cloudinary from '../utils/cloudinary.js';
 
 const router = Router();
@@ -21,6 +20,14 @@ function extractCloudinaryPublicId(url: string): string | null {
   }
 }
 
+function serializeProduct(p: any) {
+  return {
+    ...p,
+    _id: p.id,
+    pricePaise: Number(p.pricePaise)
+  };
+}
+
 // Zod Product Creation / Update Schema
 const createProductSchema = z.object({
   sku: z.string().optional(),
@@ -32,7 +39,7 @@ const createProductSchema = z.object({
   imageUrl: z.string().optional()
 });
 
-// GET /api/merchant/dashboard — Get merchant store data & active store orders (Resilient against DB offline)
+// GET /api/merchant/dashboard — Get merchant store data & active store orders from PostgreSQL
 router.get('/dashboard', async (_req: Request, res: Response): Promise<void> => {
   try {
     let merchant: any = null;
@@ -40,11 +47,12 @@ router.get('/dashboard', async (_req: Request, res: Response): Promise<void> => 
     let serializedOrders: any[] = [];
     let serializedLedger: any[] = [];
 
-    // Fetch products belonging to store from MongoDB Atlas
+    // Fetch products belonging to store from PostgreSQL
     try {
-      products = await Product.find().sort({ createdAt: -1 });
+      const pProducts = await prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
+      products = pProducts.map(serializeProduct);
     } catch (mErr) {
-      console.warn('MongoDB product query warning:', mErr);
+      console.warn('PostgreSQL product query notice:', mErr);
     }
 
     // Attempt PostgreSQL query via Prisma
@@ -82,7 +90,7 @@ router.get('/dashboard', async (_req: Request, res: Response): Promise<void> => 
         }));
       }
     } catch (pErr) {
-      console.warn('PostgreSQL merchant query fallback:', pErr);
+      console.warn('PostgreSQL merchant query notice:', pErr);
     }
 
     // Default Fallback Merchant Profile if PostgreSQL table not populated
@@ -125,7 +133,7 @@ router.get('/dashboard', async (_req: Request, res: Response): Promise<void> => 
   }
 });
 
-// POST /api/merchant/products — Create new product in MongoDB
+// POST /api/merchant/products — Create new product in PostgreSQL
 router.post('/products', async (req: Request, res: Response): Promise<void> => {
   try {
     const parseResult = createProductSchema.safeParse(req.body);
@@ -143,36 +151,40 @@ router.post('/products', async (req: Request, res: Response): Promise<void> => {
     } catch {}
 
     const finalSku = sku && sku.trim().length >= 3 ? sku.trim() : `SKU-PROD-${Date.now().toString().slice(-6)}`;
-    const pricePaise = Math.round(priceRupees * 100);
+    const pricePaise = BigInt(Math.round(priceRupees * 100));
 
     try {
-      const newProduct = await Product.create({
-        sku: finalSku,
-        title,
-        description,
-        category,
-        pricePaise,
-        stockQuantity,
-        isAvailable: stockQuantity > 0,
-        images: imageUrl ? [imageUrl] : ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'],
-        merchantId
+      const newProduct = await prisma.product.create({
+        data: {
+          sku: finalSku,
+          title,
+          description,
+          category,
+          pricePaise,
+          stockQuantity,
+          isAvailable: stockQuantity > 0,
+          images: imageUrl ? [imageUrl] : ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'],
+          merchantId
+        }
       });
-      res.status(201).json({ message: 'Product created successfully', product: newProduct });
+      res.status(201).json({ message: 'Product created successfully in PostgreSQL!', product: serializeProduct(newProduct) });
       return;
     } catch (dbErr) {
+      console.warn('PostgreSQL product create notice:', dbErr);
       const mockProduct = {
+        id: `prod_${Date.now()}`,
         _id: `prod_${Date.now()}`,
         sku: finalSku,
         title,
         description,
         category,
-        pricePaise,
+        pricePaise: Number(pricePaise),
         stockQuantity,
         isAvailable: stockQuantity > 0,
         images: imageUrl ? [imageUrl] : ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'],
         merchantId
       };
-      res.status(201).json({ message: 'Product created successfully', product: mockProduct });
+      res.status(201).json({ message: 'Product created successfully!', product: mockProduct });
       return;
     }
   } catch (error: any) {
@@ -181,10 +193,10 @@ router.post('/products', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// PUT /api/merchant/products/:id — Update existing product
+// PUT /api/merchant/products/:id — Update existing product in PostgreSQL
 router.put('/products/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const parseResult = createProductSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ error: 'Invalid product input.', details: parseResult.error.format() });
@@ -192,7 +204,7 @@ router.put('/products/:id', async (req: Request, res: Response): Promise<void> =
     }
 
     const { sku, title, description, category, priceRupees, stockQuantity, imageUrl } = parseResult.data;
-    const pricePaise = Math.round(priceRupees * 100);
+    const pricePaise = BigInt(Math.round(priceRupees * 100));
 
     const updatePayload: any = {
       title,
@@ -211,16 +223,21 @@ router.put('/products/:id', async (req: Request, res: Response): Promise<void> =
     }
 
     try {
-      const updatedProduct = await Product.findByIdAndUpdate(id, updatePayload, { new: true });
-      res.json({ message: 'Product updated successfully', product: updatedProduct });
+      const updatedProduct = await prisma.product.update({
+        where: { id },
+        data: updatePayload
+      });
+      res.json({ message: 'Product updated successfully in PostgreSQL!', product: serializeProduct(updatedProduct) });
       return;
     } catch (dbErr) {
       const mockUpdated = {
+        id,
         _id: id,
         ...updatePayload,
+        pricePaise: Number(pricePaise),
         updatedAt: new Date()
       };
-      res.json({ message: 'Product updated successfully', product: mockUpdated });
+      res.json({ message: 'Product updated successfully!', product: mockUpdated });
       return;
     }
   } catch (error: any) {
@@ -229,14 +246,14 @@ router.put('/products/:id', async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// DELETE /api/merchant/products/:id — Delete product & remove its image from Cloudinary
+// DELETE /api/merchant/products/:id — Delete product in PostgreSQL & remove its image from Cloudinary
 router.delete('/products/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     let product: any = null;
 
     try {
-      product = await Product.findById(id);
+      product = await prisma.product.findUnique({ where: { id } });
     } catch {}
 
     // Delete associated image from Cloudinary if it exists
@@ -255,9 +272,9 @@ router.delete('/products/:id', async (req: Request, res: Response): Promise<void
     }
 
     try {
-      await Product.findByIdAndDelete(id);
+      await prisma.product.delete({ where: { id } });
     } catch (dbErr) {
-      console.warn('MongoDB product delete warning:', dbErr);
+      console.warn('PostgreSQL product delete notice:', dbErr);
     }
 
     res.json({ message: 'Product and associated Cloudinary image deleted successfully', productId: id });

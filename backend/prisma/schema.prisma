@@ -158,3 +158,21 @@ model OutboxEvent {
 
   @@index([isProcessed, createdAt])
 }
+
+model Product {
+  id            String   @id @default(uuid())
+  sku           String   @unique
+  title         String
+  description   String
+  category      String
+  pricePaise    BigInt
+  stockQuantity Int      @default(0)
+  isAvailable   Boolean  @default(true)
+  images        String[]
+  merchantId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([isAvailable])
+}

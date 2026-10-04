@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
-import Product from '../models/product.model.js';
 import { 
   generateHandshakeOtp, 
   calculateHaversineDistanceMeters, 
@@ -56,11 +55,11 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Recalculate Subtotal on Server in Paise from MongoDB products
+    // Recalculate Subtotal on Server in Paise from PostgreSQL products
     let calculatedSubtotalPaise = 0n;
 
     for (const item of items) {
-      const product = await Product.findById(item.productId);
+      const product = await prisma.product.findUnique({ where: { id: item.productId } }).catch(() => null);
       if (!product || !product.isAvailable) {
         res.status(400).json({ error: `Product unavailable: ${item.productId}` });
         return;

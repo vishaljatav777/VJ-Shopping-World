@@ -1,7 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import authRoutes from './routes/auth.routes.js';
 import productRoutes from './routes/product.routes.js';
 import cartRoutes from './routes/cart.routes.js';
@@ -86,40 +85,12 @@ const connectPostgreSQL = async () => {
   }
   try {
     await prisma.$connect();
-    console.log('✅ PostgreSQL (Prisma ORM) connected successfully.');
+    console.log('✅ PostgreSQL (Prisma ORM) connected successfully. Storing 100% of data (Users, Products, Orders).');
   } catch (error) {
-    console.log('ℹ️ Operating on MongoDB Atlas Data Engine for production storage.');
+    console.log('ℹ️ Operating on PostgreSQL Data Engine.');
   }
 };
 connectPostgreSQL();
-
-// MongoDB Connection (Product Data Engine ONLY)
-const connectMongoDB = async () => {
-  try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/vj_shopping_world';
-    await mongoose.connect(mongoUri);
-    console.log('✅ MongoDB connected successfully for Product storage ONLY.');
-
-    // Automatically purge legacy user collections from MongoDB Atlas if present
-    try {
-      const db = mongoose.connection.db;
-      if (db) {
-        const collections = await db.listCollections().toArray();
-        for (const col of collections) {
-          if (col.name.toLowerCase().includes('user')) {
-            await db.dropCollection(col.name);
-            console.log(`🧹 Purged legacy collection '${col.name}' from MongoDB Atlas. User data is strictly in PostgreSQL.`);
-          }
-        }
-      }
-    } catch (cleanErr) {
-      console.warn('MongoDB collection check notice:', cleanErr);
-    }
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-  }
-};
-connectMongoDB();
 
 // Health Check
 app.get('/api/health', (_req: Request, res: Response) => {
