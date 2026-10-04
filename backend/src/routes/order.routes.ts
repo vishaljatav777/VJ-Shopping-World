@@ -109,7 +109,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
     });
 
     // Execute atomic PostgreSQL financial transaction
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       // 1. Create Order
       const newOrder = await tx.order.create({
         data: {
@@ -271,7 +271,7 @@ router.get('/user/:buyerId', async (req: Request, res: Response): Promise<void> 
       orderBy: { createdAt: 'desc' }
     });
 
-    const serializedOrders = orders.map((o) => ({
+    const serializedOrders = orders.map((o: any) => ({
       ...o,
       subtotalAmount: o.subtotalAmount.toString(),
       taxAmount: o.taxAmount.toString(),
