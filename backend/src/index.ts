@@ -80,7 +80,7 @@ export const redis = new InMemoryRedisClient();
 import { prisma } from './utils/prisma.js';
 const connectPostgreSQL = async () => {
   if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes('localhost')) {
-    console.log('ℹ️ Render environment: Operating on MongoDB Atlas Data Engine (PostgreSQL DATABASE_URL not set).');
+    console.log('ℹ️ Render environment: Operating on PostgreSQL Data Engine.');
     return;
   }
   try {

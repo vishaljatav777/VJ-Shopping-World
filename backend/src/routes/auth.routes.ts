@@ -62,7 +62,7 @@ async function createUserRecord(data: { phoneNumber: string; email?: string | nu
   console.log(`   - Name: ${data.name}`);
   console.log(`   - Phone: ${data.phoneNumber}`);
   console.log(`   - Role: ${data.role}`);
-  console.log(`   - Storage Target: PostgreSQL ORM (Zero MongoDB storage)`);
+  console.log(`   - Storage Target: PostgreSQL ORM Database`);
   console.log(`======================================================\n`);
 
   const pUser = await prisma.user.create({
