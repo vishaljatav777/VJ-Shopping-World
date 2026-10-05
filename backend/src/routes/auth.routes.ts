@@ -213,6 +213,13 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error: any) {
     console.error('Registration error:', error);
+    if (error?.message?.includes("Can't reach database server") || error?.code === 'P1001') {
+      res.status(503).json({
+        error: 'PostgreSQL database connection required.',
+        message: 'DATABASE_URL is not set on Render Dashboard. Please add your PostgreSQL connection string in Render Environment Variables.'
+      });
+      return;
+    }
     res.status(500).json({ error: 'Registration process failed', message: error?.message || 'Server error' });
   }
 });
@@ -268,6 +275,13 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error: any) {
     console.error('Login error:', error);
+    if (error?.message?.includes("Can't reach database server") || error?.code === 'P1001') {
+      res.status(503).json({
+        error: 'PostgreSQL database connection required.',
+        message: 'DATABASE_URL is not set on Render Dashboard. Please add your PostgreSQL connection string in Render Environment Variables.'
+      });
+      return;
+    }
     res.status(500).json({ error: 'Login process failed', message: error?.message || 'Server error' });
   }
 });
