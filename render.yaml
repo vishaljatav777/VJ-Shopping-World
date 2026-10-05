@@ -1,32 +1,19 @@
-# Exported from Render on 2026-09-27T11:52:41Z
 version: "1"
 services:
-- type: web
-  name: VJ-Shopping-World
-  runtime: node
-  repo: https://github.com/vishaljatav777/VJ-Shopping-World
-  plan: free
-  envVars:
-  - key: CLOUDINARY_API_SECRET
-    sync: false
-  - key: CLOUDINARY_API_KEY
-    sync: false
-  - key: CLOUDINARY_CLOUD_NAME
-    sync: false
-  - key: JWT_EXPIRES_IN
-    sync: false
-  - key: JWT_SECRET
-    sync: false
-  - key: MONGODB_URI
-    sync: false
-  - key: DATABASE_URL
-    sync: false
-  - key: NODE_ENV
-    sync: false
-  - key: PORT
-    sync: false
-  region: singapore
-  buildCommand: npm install && npm run build
-  startCommand: npm run start
-  autoDeployTrigger: commit
-  rootDir: backend/
+  - type: web
+    name: vj-shopping-world-backend
+    runtime: node
+    repo: https://github.com/vishaljatav777/VJ-Shopping-World
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: PORT
+        value: "5000"
+      - key: NODE_ENV
+        value: "production"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
