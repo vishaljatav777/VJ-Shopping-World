@@ -55,7 +55,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Recalculate Subtotal on Server in Paise from PostgreSQL products
+    // Recalculate Subtotal on Server in Paise from MySQL products
     let calculatedSubtotalPaise = 0n;
 
     for (const item of items) {
@@ -108,7 +108,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       where: { isAvailable: true }
     });
 
-    // Execute atomic PostgreSQL financial transaction
+    // Execute atomic MySQL financial transaction
     const order = await prisma.$transaction(async (tx: any) => {
       // 1. Create Order
       const newOrder = await tx.order.create({

@@ -98,7 +98,7 @@ router.post('/:orderId/verify-merchant-return', async (req: Request, res: Respon
       return;
     }
 
-    // Execute atomic PostgreSQL status update + restocking
+    // Execute atomic MySQL status update + restocking
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: { status: 'RETURNED_TO_STORE' }

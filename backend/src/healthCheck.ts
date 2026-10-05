@@ -8,12 +8,12 @@ console.log('🔍 SYSTEM INFRASTRUCTURE CONNECTIVITY DIAGNOSTIC');
 console.log('====================================================\n');
 
 async function runHealthCheck() {
-  // 1. PostgreSQL (Prisma)
+  // 1. MySQL (Prisma)
   try {
     await prisma.$queryRaw`SELECT 1;`;
-    console.log('  ✅ PostgreSQL Data Engine (Prisma ORM): CONNECTED SUCCESSFULLY (100% Data Storage)');
+    console.log('  ✅ MySQL Data Engine (Prisma ORM): CONNECTED SUCCESSFULLY (100% Data Storage)');
   } catch (err: any) {
-    console.log('  ⚠️ PostgreSQL Data Engine (Prisma ORM): NOT CONNECTED (Using Fallback)');
+    console.log('  ⚠️ MySQL Data Engine (Prisma ORM): NOT CONNECTED (Using Fallback)');
   }
 
   // 2. Ephemeral Stock Cache Engine
@@ -90,9 +90,9 @@ async function runHealthCheck() {
 
   // Database Connection Strings Check
   if (process.env.DATABASE_URL) {
-    console.log('  ✅ PostgreSQL Database URL         : PERFECTLY WORKING (Configured)');
+    console.log('  ✅ MySQL Database URL         : PERFECTLY WORKING (Configured)');
   } else {
-    console.log('  ⚠️ PostgreSQL Database URL         : NOT SET');
+    console.log('  ⚠️ MySQL Database URL         : NOT SET');
   }
 
   console.log('\n====================================================');

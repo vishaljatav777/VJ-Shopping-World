@@ -89,22 +89,22 @@ class InMemoryRedisClient {
 
 export const redis = new InMemoryRedisClient();
 
-// PostgreSQL (Prisma) Connection Check
+// MySQL (Prisma) Connection Check
 import { prisma } from './utils/prisma.js';
-const connectPostgreSQL = async () => {
+const connectMySQL = async () => {
   const dbUrl = process.env.DATABASE_URL || '';
   if (process.env.NODE_ENV === 'production' && (dbUrl.includes('localhost') || !dbUrl)) {
     console.warn('⚠️ RENDER DATABASE NOTICE: DATABASE_URL is pointing to localhost or is unconfigured on Render.');
-    console.warn('   👉 Please add a PostgreSQL Database on Render Dashboard or set DATABASE_URL in Render Environment Variables.');
+    console.warn('   👉 Please add a MySQL Database on Render Dashboard or set DATABASE_URL in Render Environment Variables.');
   }
   try {
     await prisma.$connect();
-    console.log('✅ PostgreSQL (Prisma ORM) connected successfully to database engine.');
+    console.log('✅ MySQL (Prisma ORM) connected successfully to database engine.');
   } catch (error: any) {
-    console.warn('⚠️ PostgreSQL connection check notice:', error?.message || error);
+    console.warn('⚠️ MySQL connection check notice:', error?.message || error);
   }
 };
-connectPostgreSQL();
+connectMySQL();
 
 // Health Check
 app.get('/api/health', (_req: Request, res: Response) => {

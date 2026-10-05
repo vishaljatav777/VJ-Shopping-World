@@ -22,7 +22,7 @@ VJ Express is a modern hyperlocal e-commerce application designed for 15-minute 
 
 - **Frontend**: React, Vite, Tailwind CSS v4, React Router
 - **Backend**: Node.js, Express, TypeScript, JWT, bcryptjs
-- **Databases**: PostgreSQL (Prisma), MongoDB Atlas, Redis
+- **Databases**: MySQL (Prisma), MongoDB Atlas, Redis
 
 ---
 
