@@ -79,15 +79,16 @@ export const redis = new InMemoryRedisClient();
 // PostgreSQL (Prisma) Connection Check
 import { prisma } from './utils/prisma.js';
 const connectPostgreSQL = async () => {
-  if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes('localhost')) {
-    console.log('ℹ️ Render environment: Operating on PostgreSQL Data Engine.');
-    return;
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (process.env.NODE_ENV === 'production' && (dbUrl.includes('localhost') || !dbUrl)) {
+    console.warn('⚠️ RENDER DATABASE NOTICE: DATABASE_URL is pointing to localhost or is unconfigured on Render.');
+    console.warn('   👉 Please add a PostgreSQL Database on Render Dashboard or set DATABASE_URL in Render Environment Variables.');
   }
   try {
     await prisma.$connect();
-    console.log('✅ PostgreSQL (Prisma ORM) connected successfully. Storing 100% of data (Users, Products, Orders).');
-  } catch (error) {
-    console.log('ℹ️ Operating on PostgreSQL Data Engine.');
+    console.log('✅ PostgreSQL (Prisma ORM) connected successfully to database engine.');
+  } catch (error: any) {
+    console.warn('⚠️ PostgreSQL connection check notice:', error?.message || error);
   }
 };
 connectPostgreSQL();

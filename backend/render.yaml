@@ -11,12 +11,14 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: vj-postgres-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
+
+databases:
+  - name: vj-postgres-db
+    databaseName: vj_shopping_world
+    user: vj_user
+
