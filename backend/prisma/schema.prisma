@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -91,7 +91,7 @@ model Rider {
 
 model Order {
   id                  String        @id @default(uuid())
-  orderSequenceNumber BigInt        @default(autoincrement())
+  orderSequenceNumber BigInt        @unique @default(autoincrement())
   buyerId             String
   buyer               User          @relation("BuyerOrders", fields: [buyerId], references: [id])
   merchantId          String
@@ -163,12 +163,12 @@ model Product {
   id            String   @id @default(uuid())
   sku           String   @unique
   title         String
-  description   String
+  description   String   @db.Text
   category      String
   pricePaise    BigInt
   stockQuantity Int      @default(0)
   isAvailable   Boolean  @default(true)
-  images        String[]
+  images        Json
   merchantId    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
