@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://vj-shopping-world.onrender.com/api/$1"
+      "destination": "https://vj-shopping-world-backend.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
