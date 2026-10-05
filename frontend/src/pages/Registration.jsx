@@ -98,23 +98,31 @@ export default function Registration({ onLoginSuccess, initialRole = 'BUYER' }) 
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          phoneNumber: cleanPhone,
-          email: formData.email.trim() || undefined,
-          password: formData.password,
-          role: activeRoleTab
-        })
-      });
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name.trim(),
+            phoneNumber: cleanPhone,
+            email: formData.email.trim() || undefined,
+            password: formData.password,
+            role: activeRoleTab
+          })
+        });
+      } catch (networkError) {
+        console.error('Registration fetch network error:', networkError);
+        setErrorMsg('Unable to reach server. Render cloud server may be spinning up (cold start), please wait 5-10 seconds and click Register again.');
+        setLoading(false);
+        return;
+      }
 
       let data;
       try {
         data = await res.json();
       } catch (jsonErr) {
-        throw new Error('Unable to parse backend response. Verify backend API status.');
+        throw new Error('Unable to parse backend response. Please try again.');
       }
 
       if (!res.ok) {

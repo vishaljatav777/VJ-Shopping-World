@@ -37,14 +37,22 @@ export default function Login({ onLoginSuccess, initialRole = 'BUYER' }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: cleanId,
-          password
-        })
-      });
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identifier: cleanId,
+            password
+          })
+        });
+      } catch (networkError) {
+        console.error('Login fetch network error:', networkError);
+        setErrorMsg('Unable to reach server. Render cloud server may be spinning up (cold start), please wait 5-10 seconds and click Sign In again.');
+        setLoading(false);
+        return;
+      }
 
       let data;
       try {
