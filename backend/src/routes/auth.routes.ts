@@ -22,19 +22,47 @@ const LoginSchema = z.object({
   password: z.string().min(1)
 });
 
+function normalizePhoneNumber(input: string): string {
+  const digits = input.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits.slice(2);
+  }
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return digits.slice(1);
+  }
+  if (digits.length > 10) {
+    return digits.slice(-10);
+  }
+  return digits;
+}
+
 // PostgreSQL Prisma User Lookup
 async function findUserByCredentials(identifier: string) {
   const clean = identifier.trim();
   const cleanLower = clean.toLowerCase();
+  const cleanDigits = clean.replace(/\D/g, '');
+  const normalizedPhone = normalizePhoneNumber(clean);
 
   try {
+    const whereConditions: any[] = [
+      { phoneNumber: clean },
+      { email: cleanLower },
+      { email: clean }
+    ];
+
+    if (cleanDigits) {
+      whereConditions.push({ phoneNumber: cleanDigits });
+    }
+    if (normalizedPhone) {
+      whereConditions.push({ phoneNumber: normalizedPhone });
+    }
+    if (cleanDigits.length >= 10) {
+      whereConditions.push({ phoneNumber: cleanDigits.slice(-10) });
+    }
+
     const pUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { phoneNumber: clean },
-          { email: cleanLower },
-          { email: clean }
-        ]
+        OR: whereConditions
       }
     });
     if (pUser) {
@@ -133,8 +161,13 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     }
 
     const { phoneNumber, email, password, name, role } = parseResult.data;
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const cleanPhone = normalizePhoneNumber(phoneNumber);
     const formattedEmail = email && email.trim() !== '' ? email.trim().toLowerCase() : null;
+
+    if (cleanPhone.length < 10) {
+      res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number.' });
+      return;
+    }
 
     // Check existing user in PostgreSQL
     const existingUser = await findUserByCredentials(cleanPhone);

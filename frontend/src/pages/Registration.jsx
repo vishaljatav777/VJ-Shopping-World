@@ -73,8 +73,20 @@ export default function Registration({ onLoginSuccess, initialRole = 'BUYER' }) 
       return;
     }
 
-    if (formData.phoneNumber.length !== 10) {
-      setErrorMsg('Mobile number must be exactly 10 numeric digits.');
+    const sanitizePhone = (val) => {
+      let digits = val.replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) {
+        return digits.slice(2);
+      }
+      if (digits.length === 11 && digits.startsWith('0')) {
+        return digits.slice(1);
+      }
+      return digits;
+    };
+
+    const cleanPhone = sanitizePhone(formData.phoneNumber);
+    if (cleanPhone.length < 10) {
+      setErrorMsg('Mobile number must be at least 10 numeric digits.');
       setLoading(false);
       return;
     }
@@ -91,7 +103,7 @@ export default function Registration({ onLoginSuccess, initialRole = 'BUYER' }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name.trim(),
-          phoneNumber: formData.phoneNumber,
+          phoneNumber: cleanPhone,
           email: formData.email.trim() || undefined,
           password: formData.password,
           role: activeRoleTab
@@ -242,13 +254,17 @@ export default function Registration({ onLoginSuccess, initialRole = 'BUYER' }) 
             <input
               type="tel"
               inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={10}
+              maxLength={15}
               required
               value={formData.phoneNumber}
               onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setFormData({ ...formData, phoneNumber: digits });
+                let digits = e.target.value.replace(/\D/g, '');
+                if (digits.length >= 12 && digits.startsWith('91')) {
+                  digits = digits.slice(2);
+                } else if (digits.length >= 11 && digits.startsWith('0')) {
+                  digits = digits.slice(1);
+                }
+                setFormData({ ...formData, phoneNumber: digits.slice(0, 10) });
               }}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono tracking-wider"
               placeholder="Enter 10-digit mobile number"
