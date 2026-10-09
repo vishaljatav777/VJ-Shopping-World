@@ -29,7 +29,7 @@ router.get('/console', async (_req, res) => {
             }
         }
         catch (pErr) {
-            console.warn('Rider PostgreSQL query fallback:', pErr);
+            console.warn('Rider MySQL query fallback:', pErr);
         }
         const finalRider = rider
             ? {

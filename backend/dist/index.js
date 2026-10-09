@@ -13,7 +13,19 @@ import returnRoutes from './routes/return.routes.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-// Middleware
+// Universal CORS & Preflight OPTIONS Middleware
+app.use((req, res, next) => {
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    next();
+});
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -64,22 +76,23 @@ class InMemoryRedisClient {
     }
 }
 export const redis = new InMemoryRedisClient();
-// PostgreSQL (Prisma) Connection Check
+// MySQL (Prisma) Connection Check
 import { prisma } from './utils/prisma.js';
-const connectPostgreSQL = async () => {
-    if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes('localhost')) {
-        console.log('ℹ️ Render environment: Operating on PostgreSQL Data Engine.');
-        return;
+const connectMySQL = async () => {
+    const dbUrl = process.env.DATABASE_URL || '';
+    if (process.env.NODE_ENV === 'production' && (dbUrl.includes('localhost') || !dbUrl)) {
+        console.warn('⚠️ RENDER DATABASE NOTICE: DATABASE_URL is pointing to localhost or is unconfigured on Render.');
+        console.warn('   👉 Please add a MySQL Database on Render Dashboard or set DATABASE_URL in Render Environment Variables.');
     }
     try {
         await prisma.$connect();
-        console.log('✅ PostgreSQL (Prisma ORM) connected successfully. Storing 100% of data (Users, Products, Orders).');
+        console.log('✅ MySQL (Prisma ORM) connected successfully to database engine.');
     }
     catch (error) {
-        console.log('ℹ️ Operating on PostgreSQL Data Engine.');
+        console.warn('⚠️ MySQL connection check notice:', error?.message || error);
     }
 };
-connectPostgreSQL();
+connectMySQL();
 // Health Check
 app.get('/api/health', (_req, res) => {
     res.json({

@@ -17,7 +17,7 @@ router.post('/reserve', authenticateJwt, async (req, res) => {
         }
         const { sku, quantity } = parseResult.data;
         const userId = req.user.id;
-        // Check actual stock in PostgreSQL
+        // Check actual stock in MySQL
         const product = await prisma.product.findUnique({ where: { sku } }).catch(() => null);
         if (!product || !product.isAvailable) {
             return res.status(404).json({ error: 'Product unavailable or out of stock.' });

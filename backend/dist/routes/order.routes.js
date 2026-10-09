@@ -41,7 +41,7 @@ router.post('/checkout', async (req, res) => {
             res.status(404).json({ error: 'Merchant store not found' });
             return;
         }
-        // Recalculate Subtotal on Server in Paise from PostgreSQL products
+        // Recalculate Subtotal on Server in Paise from MySQL products
         let calculatedSubtotalPaise = 0n;
         for (const item of items) {
             const product = await prisma.product.findUnique({ where: { id: item.productId } }).catch(() => null);
@@ -85,7 +85,7 @@ router.post('/checkout', async (req, res) => {
         const availableRider = await prisma.rider.findFirst({
             where: { isAvailable: true }
         });
-        // Execute atomic PostgreSQL financial transaction
+        // Execute atomic MySQL financial transaction
         const order = await prisma.$transaction(async (tx) => {
             // 1. Create Order
             const newOrder = await tx.order.create({

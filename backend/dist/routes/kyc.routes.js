@@ -29,7 +29,7 @@ router.post('/merchant/verify', async (req, res) => {
             res.status(400).json({ error: 'Bank Penny-Drop verification failed: Name match score below 0.8' });
             return;
         }
-        // Update Merchant KYB Status in PostgreSQL
+        // Update Merchant KYB Status in MySQL
         const merchant = await prisma.merchant.findFirst();
         if (merchant) {
             await prisma.merchant.update({
@@ -81,7 +81,7 @@ router.post('/rider/verify', async (req, res) => {
             res.status(400).json({ error: 'Rider KYC failed: Active driving license and vehicle RC required' });
             return;
         }
-        // Update Rider profile in PostgreSQL
+        // Update Rider profile in MySQL
         const rider = await prisma.rider.findFirst();
         if (rider) {
             await prisma.rider.update({

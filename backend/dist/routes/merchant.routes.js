@@ -37,22 +37,22 @@ const createProductSchema = z.object({
     stockQuantity: z.coerce.number().int().nonnegative(),
     imageUrl: z.string().optional()
 });
-// GET /api/merchant/dashboard — Get merchant store data & active store orders from PostgreSQL
+// GET /api/merchant/dashboard — Get merchant store data & active store orders from MySQL
 router.get('/dashboard', async (_req, res) => {
     try {
         let merchant = null;
         let products = [];
         let serializedOrders = [];
         let serializedLedger = [];
-        // Fetch products belonging to store from PostgreSQL
+        // Fetch products belonging to store from MySQL
         try {
             const pProducts = await prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
             products = pProducts.map(serializeProduct);
         }
         catch (mErr) {
-            console.warn('PostgreSQL product query notice:', mErr);
+            console.warn('MySQL product query notice:', mErr);
         }
-        // Attempt PostgreSQL query via Prisma
+        // Attempt MySQL query via Prisma
         try {
             merchant = await prisma.merchant.findFirst({
                 include: {
@@ -86,9 +86,9 @@ router.get('/dashboard', async (_req, res) => {
             }
         }
         catch (pErr) {
-            console.warn('PostgreSQL merchant query notice:', pErr);
+            console.warn('MySQL merchant query notice:', pErr);
         }
-        // Default Fallback Merchant Profile if PostgreSQL table not populated
+        // Default Fallback Merchant Profile if MySQL table not populated
         const finalMerchant = merchant
             ? {
                 ...merchant,
@@ -127,7 +127,7 @@ router.get('/dashboard', async (_req, res) => {
         });
     }
 });
-// POST /api/merchant/products — Create new product in PostgreSQL
+// POST /api/merchant/products — Create new product in MySQL
 router.post('/products', async (req, res) => {
     try {
         const parseResult = createProductSchema.safeParse(req.body);
@@ -159,11 +159,11 @@ router.post('/products', async (req, res) => {
                     merchantId
                 }
             });
-            res.status(201).json({ message: 'Product created successfully in PostgreSQL!', product: serializeProduct(newProduct) });
+            res.status(201).json({ message: 'Product created successfully in MySQL!', product: serializeProduct(newProduct) });
             return;
         }
         catch (dbErr) {
-            console.warn('PostgreSQL product create notice:', dbErr);
+            console.warn('MySQL product create notice:', dbErr);
             const mockProduct = {
                 id: `prod_${Date.now()}`,
                 _id: `prod_${Date.now()}`,
@@ -186,7 +186,7 @@ router.post('/products', async (req, res) => {
         res.status(500).json({ error: 'Failed to create product', message: error?.message || 'Server error' });
     }
 });
-// PUT /api/merchant/products/:id — Update existing product in PostgreSQL
+// PUT /api/merchant/products/:id — Update existing product in MySQL
 router.put('/products/:id', async (req, res) => {
     try {
         const id = String(req.params.id);
@@ -216,7 +216,7 @@ router.put('/products/:id', async (req, res) => {
                 where: { id },
                 data: updatePayload
             });
-            res.json({ message: 'Product updated successfully in PostgreSQL!', product: serializeProduct(updatedProduct) });
+            res.json({ message: 'Product updated successfully in MySQL!', product: serializeProduct(updatedProduct) });
             return;
         }
         catch (dbErr) {
@@ -236,7 +236,7 @@ router.put('/products/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to update product', message: error?.message || 'Server error' });
     }
 });
-// DELETE /api/merchant/products/:id — Delete product in PostgreSQL & remove its image from Cloudinary
+// DELETE /api/merchant/products/:id — Delete product in MySQL & remove its image from Cloudinary
 router.delete('/products/:id', async (req, res) => {
     try {
         const id = String(req.params.id);
@@ -264,7 +264,7 @@ router.delete('/products/:id', async (req, res) => {
             await prisma.product.delete({ where: { id } });
         }
         catch (dbErr) {
-            console.warn('PostgreSQL product delete notice:', dbErr);
+            console.warn('MySQL product delete notice:', dbErr);
         }
         res.json({ message: 'Product and associated Cloudinary image deleted successfully', productId: id });
     }

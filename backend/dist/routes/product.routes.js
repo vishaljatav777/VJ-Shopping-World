@@ -19,7 +19,7 @@ function serializeProduct(p) {
         pricePaise: Number(p.pricePaise)
     };
 }
-// GET /api/products — Fetch product catalog directly from PostgreSQL database
+// GET /api/products — Fetch product catalog directly from MySQL database
 router.get('/', async (req, res) => {
     try {
         const { category, search } = req.query;
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
             whereFilter.category = String(category);
         }
         if (search) {
-            whereFilter.title = { contains: String(search), mode: 'insensitive' };
+            whereFilter.title = { contains: String(search) };
         }
         const products = await prisma.product.findMany({
             where: whereFilter,
@@ -38,11 +38,11 @@ router.get('/', async (req, res) => {
         return res.json({ count: serialized.length, products: serialized });
     }
     catch (error) {
-        console.error('PostgreSQL product fetch error:', error);
+        console.error('MySQL product fetch error:', error);
         return res.json({ count: 0, products: [] });
     }
 });
-// GET /api/products/:id — Fetch single product directly from PostgreSQL database
+// GET /api/products/:id — Fetch single product directly from MySQL database
 router.get('/:id', async (req, res) => {
     try {
         const prodId = String(req.params.id);
@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch product details.' });
     }
 });
-// POST /api/products — Create product in PostgreSQL database (Merchant role only)
+// POST /api/products — Create product in MySQL database (Merchant role only)
 router.post('/', authenticateJwt, requireRole(['MERCHANT', 'ADMIN']), async (req, res) => {
     try {
         const parseResult = ProductCreateSchema.safeParse(req.body);
@@ -76,11 +76,11 @@ router.post('/', authenticateJwt, requireRole(['MERCHANT', 'ADMIN']), async (req
                 pricePaise: BigInt(pricePaise),
                 stockQuantity,
                 isAvailable: stockQuantity > 0,
-                images,
+                images: images,
                 merchantId: req.user.id
             }
         });
-        return res.status(201).json({ message: 'Product created successfully in PostgreSQL database!', product: serializeProduct(newProduct) });
+        return res.status(201).json({ message: 'Product created successfully in MySQL database!', product: serializeProduct(newProduct) });
     }
     catch (error) {
         console.error('Create product error:', error);

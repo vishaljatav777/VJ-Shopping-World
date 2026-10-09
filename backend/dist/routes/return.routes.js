@@ -84,7 +84,7 @@ router.post('/:orderId/verify-merchant-return', async (req, res) => {
             res.status(400).json({ error: 'Tamper-Evident Seal Broken! Return flagged for admin arbitration.' });
             return;
         }
-        // Execute atomic PostgreSQL status update + restocking
+        // Execute atomic MySQL status update + restocking
         const updatedOrder = await prisma.order.update({
             where: { id: orderId },
             data: { status: 'RETURNED_TO_STORE' }
