@@ -6,9 +6,9 @@ export default function Footer() {
     <footer className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700/80 pt-12 pb-8 mt-16 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-base font-bold">🛍️</div>
-            <span className="font-extrabold text-lg text-slate-900 dark:text-white">VJ Express</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-heading italic text-base">VJ</div>
+            <span className="font-heading font-semibold text-xl text-slate-900 dark:text-white">VJ Express</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Hyperlocal 15-minute express delivery network for groceries, electronics, and local neighborhood stores.

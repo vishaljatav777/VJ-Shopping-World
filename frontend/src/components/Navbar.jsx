@@ -23,15 +23,15 @@ export default function Navbar({
         <div className="h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Compact Title */}
-          <Link to="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0 group">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-xl flex items-center justify-center text-lg sm:text-xl text-white shadow-sm group-hover:scale-105 transition-transform duration-200">
-              🛍️
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 shrink-0 group">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-heading italic text-lg sm:text-xl shadow-sm group-hover:scale-105 transition-transform duration-200">
+              VJ
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white leading-none tracking-tight">
+              <h1 className="font-heading text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white leading-none tracking-tight">
                 VJ Express
               </h1>
-              <span className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide block sm:inline">
+              <span className="label-caps text-[8px] sm:text-[9px] text-amber-600 dark:text-amber-400 mt-0.5 block sm:inline">
                 15-Min Delivery
               </span>
             </div>
