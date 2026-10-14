@@ -15,6 +15,13 @@
 - `JWT_SECRET` has a fallback default in code; a dev value is set in compose.
 - Frontend API URL is configured via `VITE_API_BASE_URL` env var pointing to the public backend URL (`https://8000-$BASE44_PUBLIC_HOST_SUFFIX/api`).
 
+## Database wiring (both local + Railway)
+- The backend's `DATABASE_URL` comes from `env_file` precedence in `docker-compose.base44.yml`:
+  1. `./.env.base44-defaults` (repo-level placeholder → local sandbox MySQL, zero egress)
+  2. `/run/base44/app.env` (platform secrets — LAST, always wins)
+- The user's Railway MySQL is stored as the `DATABASE_URL` secret in the dashboard; adding it there switches the preview backend to Railway (Railway egress charges apply). Leaving it empty keeps the free local MySQL.
+- Startup (`prisma db push` + seed) runs against whichever `DATABASE_URL` wins.
+
 ## Demo Accounts (seeded)
 - **Buyer**: phone `9876543210`, password `Password123!`
 - **Merchant**: phone `9876543211`, password `Password123!`

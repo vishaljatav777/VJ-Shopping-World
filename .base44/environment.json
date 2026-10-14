@@ -2,5 +2,11 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "DATABASE_URL",
+      "description": "MySQL connection string (e.g. Railway). When set, overrides the local sandbox MySQL.",
+      "requiredAtBoot": false
+    }
+  ]
 }
